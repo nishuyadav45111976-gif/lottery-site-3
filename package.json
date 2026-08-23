@@ -1,0 +1,26 @@
+{
+  "name": "lottery-results-site",
+  "version": "1.0.0",
+  "description": "Lottery results website with admin panel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "backup": "node scripts/backup-postgres.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "ejs": "^3.1.10",
+    "lowdb": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "web-push": "^3.6.7",
+    "pg": "^8.16.3",
+    "helmet": "^8.1.0",
+    "connect-pg-simple": "^10.0.0",
+    "otplib": "^12.0.1"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

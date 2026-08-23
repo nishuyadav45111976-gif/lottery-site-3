@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= (typeof title !== 'undefined' && title && title !== siteName) ? title + ' | ' + siteName : siteName %></title>
+  <% if (noIndex) { %><meta name="robots" content="noindex,nofollow,noarchive" /><% } %>
+  <meta name="description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : siteName + ' — latest lottery results, updated daily.' %>" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="<%= (typeof title !== 'undefined' && title) ? title : siteName %>" />
+  <meta property="og:description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : siteName + ' — latest lottery results, updated daily.' %>" />
+  <% if (typeof currentUrl !== 'undefined' && currentUrl) { %><meta property="og:url" content="<%= currentUrl %>" /><% } %>
+  <% if (!noIndex && currentUrl) { %><link rel="canonical" href="<%= currentUrl %>" /><% } %>
+  <meta name="theme-color" content="#1a9c6b" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <script>
+    // Applied before the stylesheet loads, so there's no flash of the wrong theme
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme');
+        if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<body class="<%= (typeof contactNumber !== 'undefined' && contactNumber) ? 'has-contact-bar' : '' %>">
+  <header class="site-header">
+    <div class="container">
+      <a href="/" class="logo">🏆 <%= siteName %></a>
+      <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">
+        <a href="/"><%= t('navResults') %></a>
+        <a href="/history"><%= t('navHistory') %></a>
+        <% if (typeof userSession !== 'undefined' && userSession) { %>
+          <a href="/account">My Account</a>
+        <% } %>
+        <a href="/lang/<%= lang === 'hi' ? 'en' : 'hi' %>" class="lang-toggle"><%= t('langToggle') %></a>
+        <button id="themeToggleBtn" type="button" class="lang-toggle" style="background:transparent; cursor:pointer;">🌙</button>
+      </nav>
+    </div>
+  </header>
+
+  <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
+    <div id="installAppBar" class="install-app-bar" style="display:none;">
+      <button id="installAppBtn" class="btn secondary" type="button">📲 Install App</button>
+    </div>
+  <% } %>
+
+  <main id="main-content" class="container">

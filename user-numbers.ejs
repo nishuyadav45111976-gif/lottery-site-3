@@ -1,0 +1,145 @@
+<%- include('partial-header', { title: lottery.name }) %>
+<div class="container">
+  <div class="page-back"><a href="/account/lotteries">← Back to Lotteries</a></div>
+  <div class="top-actions">
+    <div>
+      <h1 style="margin:0;"><%= lottery.name %></h1>
+      <p class="subtitle">Tap a number from 00–99 to enter ticket details. Amount means the total amount for that entry.</p>
+    </div>
+    <div class="top-actions-inline">
+      <a class="btn secondary" href="/account/lotteries">Choose Lottery</a>
+      <a class="btn secondary" href="/account">Dashboard</a>
+    </div>
+  </div>
+
+  <style>
+    .number-grid.user-number-grid { align-items: start; }
+    .user-number-card { min-width: 0; }
+    .user-number-card > .number-box {
+      width: 100%;
+      cursor: pointer;
+    }
+    .user-ticket-panel {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #fff;
+      box-sizing: border-box;
+    }
+    .user-ticket-panel.open { display: block; }
+    .user-ticket-panel label {
+      display: block;
+      margin: 7px 0 4px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .user-ticket-panel input {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border: 1px solid #ccc;
+      border-radius: 7px;
+      background: #fff;
+    }
+    .user-ticket-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .user-ticket-actions button {
+      border: 0;
+      border-radius: 7px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .user-ticket-submit { background: #111; color: #fff; }
+    .user-ticket-cancel { background: #eee; }
+  </style>
+
+  <% if (notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %>
+  <% if (ticketStatus && ticketStatus.locked) { %>
+    <div class="error-msg" style="margin:12px 0;">🔒 Ticket entry closed. Entries stop 15 minutes before the <%= ticketStatus.drawTime %> result time.</div>
+  <% } else if (ticketStatus) { %><div class="flash-msg" id="ticketOpenStatus">🟢 Ticket entry open · closes at <strong><%= ticketStatus.cutoffText %></strong> (<%= ticketStatus.timezone %>)</div><% } %>
+
+  <div class="number-grid user-number-grid">
+    <% for (let i = 0; i < 100; i++) { const n = String(i).padStart(2,'0'); %>
+      <div class="user-number-card" data-number-card>
+        <button class="number-box user-number-box" type="button" aria-label="Select number <%= n %>" data-number-trigger <%= ticketStatus && ticketStatus.locked ? 'disabled' : '' %>>
+          <div class="num-label"><%= n %></div>
+          <% if (purchaseTotals[n].tickets > 0) { %>
+            <div class="num-meta"><%= purchaseTotals[n].tickets %> tkt<%= purchaseTotals[n].tickets === 1 ? '' : 's' %></div>
+          <% } %>
+          <% if (purchaseTotals[n].amount > 0) { %>
+            <div class="num-meta"><%= purchaseTotals[n].amount %></div>
+          <% } %>
+        </button>
+
+        <div class="user-ticket-panel" data-ticket-panel>
+          <form method="post" action="/lottery/<%= lottery.id %>/purchases/<%= n %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= requestIds[n] %>">
+            <label for="tickets-<%= n %>">No. of tickets</label>
+            <input type="number" id="tickets-<%= n %>" name="tickets" min="1" step="1" inputmode="numeric" placeholder="e.g. 10" required>
+
+            <label for="amount-<%= n %>">Amount <span class="subtitle">(total)</span></label>
+            <input type="number" id="amount-<%= n %>" name="amount" min="0" step="any" inputmode="decimal" placeholder="e.g. 500" required>
+
+            <div class="user-ticket-actions">
+              <button type="submit" class="user-ticket-submit">Add Ticket Record</button>
+              <button type="button" class="user-ticket-cancel" data-ticket-cancel>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>
+<%- include('partial-footer') %>
+
+<script>
+// Open the ticket-entry panel for any number from 00 through 99.
+document.addEventListener('submit', function (e) {
+  const form = e.target.closest('.user-ticket-panel form');
+  if (!form) return;
+  const btn = form.querySelector('.user-ticket-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+});
+
+document.addEventListener('click', function (e) {
+  const trigger = e.target.closest('[data-number-trigger]');
+  if (!trigger) return;
+
+  const card = trigger.closest('[data-number-card]');
+  if (!card) return;
+
+  const panel = card.querySelector('[data-ticket-panel]');
+  if (!panel) return;
+
+  e.preventDefault();
+
+  document.querySelectorAll('[data-ticket-panel].open').forEach(function (other) {
+    if (other !== panel) other.classList.remove('open');
+  });
+
+  panel.classList.toggle('open');
+
+  if (panel.classList.contains('open')) {
+    const ticketsInput = panel.querySelector('input[name="tickets"]');
+    if (ticketsInput) ticketsInput.focus();
+  }
+});
+
+document.addEventListener('click', function (e) {
+  const cancel = e.target.closest('[data-ticket-cancel]');
+  if (!cancel) return;
+
+  const panel = cancel.closest('[data-ticket-panel]');
+  if (panel) panel.classList.remove('open');
+});
+</script>
+
+<script>
+(function(){var el=document.getElementById('ticketOpenStatus'); if(!el) return; var remaining=Number(<%= ticketStatus.secondsToCutoff || 0 %>); function formatRemaining(totalSeconds){var totalMinutes=Math.ceil(Math.max(0,totalSeconds)/60); var hours=Math.floor(totalMinutes/60), mins=totalMinutes%60; if(hours>0&&mins>0) return hours+' hr '+mins+' min'; if(hours>0) return hours+' hr'; return mins+' min';} function tick(){ if(remaining<=0){el.textContent='🔒 Ticket entry closed. Refresh this page to see the locked state.'; return;} el.innerHTML='🟢 Ticket entry open · closes at <strong><%= ticketStatus.cutoffText %></strong> · <span>closing in '+formatRemaining(remaining)+'</span>'; remaining--; } tick(); setInterval(tick,1000);})();
+</script>

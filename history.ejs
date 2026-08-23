@@ -1,0 +1,57 @@
+<%- include('partial-header', { title: 'Full Result History' }) %>
+
+<a class="back-link" href="/"><%= t('historyBackLatest') %></a>
+<h1><%= t('historyHeading') %></h1>
+<p class="subtitle"><%= t('historySubtitle') %></p>
+
+<form class="form-box" method="GET" action="/history" style="margin-bottom:24px;">
+  <label for="lottery"><%= t('filterLotteryLabel') %></label>
+  <select id="lottery" name="lottery">
+    <option value=""><%= t('filterAllLotteries') %></option>
+    <% allLotteries.forEach(function(l) { %>
+      <option value="<%= l.slug %>" <%= selectedSlug === l.slug ? 'selected' : '' %>><%= l.name %></option>
+    <% }); %>
+  </select>
+
+  <label for="from"><%= t('filterFromLabel') %></label>
+  <input type="date" id="from" name="from" value="<%= fromDate %>" />
+
+  <label for="to"><%= t('filterToLabel') %></label>
+  <input type="date" id="to" name="to" value="<%= toDate %>" />
+
+  <button type="submit"><%= t('filterButton') %></button>
+  <% if (selectedSlug || fromDate || toDate) { %>
+    <a class="back-link" style="display:block; margin-top:10px;" href="/history"><%= t('clearFilters') %></a>
+  <% } %>
+</form>
+
+<% if (lotteries.length === 0) { %>
+  <div class="empty-state"><%= t('historyEmptyNoLotteries') %></div>
+<% } else if (rows.length === 0) { %>
+  <div class="empty-state"><%= t('historyEmptyNoMatch') %></div>
+<% } else { %>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th><%= t('colDate') %></th>
+          <% lotteries.forEach(function(lottery) { %>
+            <th><%= lottery.name %></th>
+          <% }); %>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function(row) { %>
+          <tr>
+            <td class="dim-cell"><%= row.date %></td>
+            <% row.cells.forEach(function(cell) { %>
+              <td class="result-cell"><%= cell %></td>
+            <% }); %>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('partial-footer') %>

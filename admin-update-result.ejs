@@ -1,0 +1,71 @@
+<%- include('partial-header', { title: 'Update Result - ' + lottery.name }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1><%= lottery.name %></h1>
+<p class="subtitle">Add today's result, or update any past date (posting the same date again overwrites it).</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/lottery/<%= lottery.id %>/result"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="date">Result date</label><p class="subtitle">Use today or an earlier date. Future result dates are not allowed.</p>
+  <input type="date" id="date" name="date" required />
+
+  <label for="resultText">Result</label>
+  <input type="text" id="resultText" name="resultText" placeholder="e.g. 45 12 78 03 91" required />
+
+  <button type="submit">Save Result</button>
+</form>
+
+<h2 style="margin-top:32px;">Result History</h2>
+<% if (results.length === 0) { %>
+  <div class="empty-state">No results posted yet.</div>
+<% } else { %>
+  <table>
+    <thead><tr><th>Date</th><th>Result</th><th></th></tr></thead>
+    <tbody>
+      <% results.forEach(function(r) { %>
+        <tr>
+          <td><%= r.date %></td>
+          <td class="result-cell"><%= r.resultText %></td>
+          <td>
+            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/delete" onsubmit="return confirm('Delete this result? You can undo it from the trash below.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+<% } %>
+
+<% if (trashedResults && trashedResults.length > 0) { %>
+  <h2 style="margin-top:32px;">Trash</h2>
+  <p class="subtitle">Deleted results stay here until you restore or permanently remove them.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Result</th><th></th></tr></thead>
+    <tbody>
+      <% trashedResults.forEach(function(r) { %>
+        <tr>
+          <td><%= r.date %></td>
+          <td class="result-cell"><%= r.resultText %></td>
+          <td style="display:flex; gap:6px;">
+            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/restore"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn secondary">Restore</button>
+            </form>
+            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/purge" onsubmit="return confirm('Permanently delete this result? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn danger">Delete Forever</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('partial-footer') %>

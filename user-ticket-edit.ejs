@@ -1,0 +1,7 @@
+<%- include('partial-header', { title: 'Edit Ticket' }) %>
+<div class="container"><div class="page-back"><a href="/account/tickets">← My Tickets</a></div><h1>Edit Ticket</h1><p class="subtitle"><%= lottery.name %> · Number <strong><%= entry.number %></strong></p>
+<% if(error){ %><div class="error-msg"><%= error %></div><% } %>
+<form class="form-box" method="post" action="/account/tickets/<%= entry.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label>No. of tickets</label><input type="number" name="tickets" min="1" max="100000" value="<%= entry.tickets %>" required>
+<label>Amount <span class="subtitle">(total amount for this entry)</span></label><input type="number" name="amount" min="0" step="any" value="<%= entry.amount %>" required>
+<button class="btn primary">Save Changes</button></form></div><%- include('partial-footer') %>

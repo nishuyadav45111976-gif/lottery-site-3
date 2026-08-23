@@ -1,0 +1,75 @@
+<%- include('partial-header', { title: lottery.name + ' — No. ' + number }) %>
+
+<a class="back-link" href="/admin/lottery/<%= lottery.id %>/purchases">&larr; All numbers</a>
+<h1><%= lottery.name %> &mdash; No. <%= number %></h1>
+
+<% if (typeof flash !== 'undefined' && flash) { %><div class="flash-msg">✓ <%= flash %></div><% } %>
+<% if (error) { %><div class="error-msg"><%= error %></div><% } %>
+
+<div class="card">
+  <h2>Add ticket record for No. <%= number %></h2>
+  <p class="subtitle">Link the record to an existing user when possible. Name is kept for display and legacy records.</p>
+  <form class="form-box" method="POST" action="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label for="userId">User account</label>
+    <select id="userId" name="userId">
+      <option value="">— Internal / no account —</option>
+      <% (users || []).forEach(function(u) { %><option value="<%= u.id %>"><%= u.name %> — <%= u.userCode %></option><% }); %>
+    </select>
+    <label for="buyerName">Name of person</label>
+    <input type="text" id="buyerName" name="buyerName" placeholder="Enter name" autocomplete="off" required />
+
+    <label for="tickets">No. of tickets</label>
+    <input type="number" id="tickets" name="tickets" min="1" step="1" inputmode="numeric" placeholder="e.g. 10" required />
+
+    <label for="amount">Amount</label>
+    <input type="number" id="amount" name="amount" min="0" step="any" inputmode="decimal" placeholder="e.g. 500" />
+
+    <button class="btn primary" type="submit">Add Ticket Record</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>User accounts following No. <%= number %></h2>
+  <% if (!followers.length) { %>
+    <p class="empty-state">No user accounts are following this number.</p>
+  <% } else { %>
+    <% followers.forEach(function(f) { %>
+      <div class="admin-row">
+        <div class="left">
+          <strong><%= f.userName %></strong>
+          <div class="meta">Personal ID: <%= f.userCode %></div>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+</div>
+
+<form class="search-form" method="get" action="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>"><input class="search-box" name="q" placeholder="Search buyer name" aria-label="Search ticket entries"><button class="btn secondary">Search</button></form>
+<div class="card">
+  <h2>Existing internal ticket records</h2>
+  <p class="subtitle">These records remain separate from user number-following.</p>
+  <% if (entries.length === 0) { %>
+    <div class="empty-state">No ticket records logged for this number yet.</div>
+  <% } else {
+    var totalTickets = 0, totalAmount = 0;
+    entries.forEach(function(e) { totalTickets += e.tickets; totalAmount += e.amount; });
+  %>
+    <p class="subtitle"><%= totalTickets %> ticket<%= totalTickets === 1 ? '' : 's' %> total<% if (totalAmount > 0) { %> &middot; <%= totalAmount %> total amount<% } %></p>
+    <% entries.forEach(function(e) { %>
+      <div class="admin-row">
+        <div class="left">
+          <span><%= e.buyerName %></span>
+          <div class="meta"><%= e.tickets %> ticket<%= e.tickets === 1 ? '' : 's' %><% if (e.amount > 0) { %> &middot; <%= e.amount %><% } %></div>
+        </div>
+        <div class="actions">
+          <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>/<%= e.id %>/edit">Edit</a>
+          <form method="POST" action="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>/<%= e.id %>/delete" onsubmit="return confirm('Delete this entry?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="btn danger">Delete</button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+</div>
+
+<%- include('partial-footer') %>

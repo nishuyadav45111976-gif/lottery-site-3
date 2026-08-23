@@ -1,0 +1,22 @@
+<%- include('partial-header', { title: 'Audit Log' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Audit Log</h1>
+<p class="subtitle">A record of recent changes made in this admin panel &mdash; internal only, never shown on the public site. Keeps the most recent 200 actions.</p>
+
+<% if (log.length === 0) { %>
+  <div class="empty-state">Nothing logged yet.</div>
+<% } else { %>
+  <% log.forEach(function(entry) { %>
+    <div class="admin-row">
+      <div class="left">
+        <span><%= entry.action %></span>
+        <div class="meta">
+          <%= entry.detail %><% if (entry.detail) { %> &middot; <% } %><%= new Date(entry.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) %><% if (entry.ip) { %> &middot; <%= entry.ip %><% } %>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
+<%- include('partial-footer') %>

@@ -1,0 +1,10 @@
+<%- include('partial-header', { title: 'Reset Password' }) %>
+<div class="container">
+<h1>Reset your password</h1><p class="subtitle">Use the recovery code given when your account was created.</p>
+<% if(error){ %><div class="error-msg"><%= error %></div><% } %>
+<form class="form-box" method="post" action="/recover"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label>Personal ID</label><input name="userCode" required autocomplete="username">
+<label>Recovery code</label><input name="recoveryCode" required autocomplete="one-time-code">
+<label>New password</label><input type="password" name="newPassword" minlength="8" required autocomplete="new-password">
+<button class="btn primary">Reset Password</button></form>
+</div><%- include('partial-footer') %>

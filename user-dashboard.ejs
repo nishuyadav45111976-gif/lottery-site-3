@@ -1,0 +1,26 @@
+<%- include('partial-header', { title: 'My Dashboard' }) %>
+<div class="container">
+  <div class="account-head">
+    <div>
+      <h1>Welcome, <%= user.name %></h1>
+      <p class="subtitle">Personal ID: <strong><%= user.userCode %></strong></p>
+    </div>
+    <div class="top-actions-inline">
+      <a class="btn secondary" href="/account/settings">Settings</a>
+      <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit">Logout</button></form>
+    </div>
+  </div>
+
+  <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %>
+
+  <div class="dashboard-nav-grid">
+    <a class="dashboard-nav-card" href="/account/lotteries"><strong>Choose Lottery</strong><span>Open a lottery and enter ticket details</span></a>
+    <a class="dashboard-nav-card" href="/account/tickets"><strong>My Tickets</strong><span>View your ticket history and totals</span></a>
+  </div>
+
+  <div class="card">
+    <div class="section-head-row"><h2>Your ticket summary</h2><a class="btn secondary" href="/account/tickets">View My Tickets</a></div>
+    <p class="subtitle">Your ticket totals are tied to your account and are private to you.</p>
+  </div>
+</div>
+<%- include('partial-footer') %>

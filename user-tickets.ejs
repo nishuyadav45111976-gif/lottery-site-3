@@ -1,0 +1,19 @@
+<%- include('partial-header', { title: 'My Tickets' }) %>
+<div class="container">
+  <div class="page-back"><a href="/account">← Back to Dashboard</a></div>
+  <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %><div class="top-actions"><div><h1 style="margin:0;">My Tickets</h1><p class="subtitle">Only ticket records belonging to your account are shown here.</p></div><a class="btn secondary" href="/account/lotteries">Choose Lottery</a></div>
+  <div class="user-detail-summary">
+    <div><strong><%= totalTickets %></strong><span>Total tickets</span></div>
+    <div><strong><%= totalAmount %></strong><span>Total amount</span></div>
+  </div>
+  <div class="card">
+    <% if (!entries.length) { %><p class="empty-state">You have not entered any tickets yet.</p><% } %>
+    <% entries.forEach(function(e) { %>
+      <div class="admin-row">
+        <div class="left"><strong><%= e.lotteryName %></strong><div class="meta">Number <%= e.number %> · <%= e.tickets %> ticket<%= e.tickets === 1 ? '' : 's' %> · <%= e.amount %></div></div>
+        <div class="meta"><%= new Date(e.createdAt).toLocaleString() %><% if (e.canEdit) { %> · <a href="/account/tickets/<%= e.id %>/edit">Edit</a><% } else { %> · 🔒 Closed<% } %></div>
+      </div>
+    <% }); %>
+  </div>
+</div>
+<%- include('partial-footer') %>

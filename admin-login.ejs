@@ -1,0 +1,22 @@
+<%- include('partial-header', { title: 'Admin Login' }) %>
+
+<h1>Admin Login</h1>
+<p class="subtitle">Enter your admin password to manage lotteries and results.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/login"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="password">Password</label>
+  <input type="password" id="password" name="password" autofocus required autocomplete="current-password" />
+  <% if (otpRequired) { %><label for="otp">Authenticator code</label>
+  <input type="text" id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" required /><% } else { %><p class="subtitle">2FA is currently disabled. You can sign in with your admin password only. You can enable 2FA later from Admin Settings.</p><% } %>
+  <button type="submit">Log In</button>
+</form>
+
+<%- include('partial-footer') %>

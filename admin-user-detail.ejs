@@ -1,0 +1,49 @@
+<%- include('partial-header', { title: user.name + ' — Purchased Numbers' }) %>
+
+<div class="page-back"><a href="/admin/users">← Back to User Accounts</a></div>
+<div class="top-actions">
+  <div>
+    <h1 style="margin:0;"><%= user.name %></h1>
+    <p class="subtitle">Personal ID: <strong><%= user.userCode %></strong> · <%= user.active ? 'Active' : 'Disabled' %></p>
+  </div>
+  <a class="btn secondary" href="/admin">Admin Dashboard</a>
+</div>
+
+<div class="card">
+  <h2>Ticket purchase summary</h2>
+  <p class="subtitle">Numbers this account has bought tickets for, with the total tickets and amount recorded on each number.</p>
+  <div class="user-detail-summary">
+    <div><strong><%= purchasedCount %></strong><span>Numbers bought</span></div>
+    <div><strong><%= totalTickets %></strong><span>Total tickets</span></div>
+    <div><strong><%= totalAmount %></strong><span>Total amount</span></div>
+  </div>
+</div>
+
+<% if (!lotteryViews.length) { %>
+  <div class="empty-state">No lotteries have been created yet.</div>
+<% } else { %>
+  <% lotteryViews.forEach(function(lottery) { %>
+    <div class="card">
+      <div class="section-head-row">
+        <div>
+          <h2 style="margin:0;"><%= lottery.name %></h2>
+          <p class="subtitle" style="margin-bottom:0;">Purchased numbers</p>
+        </div>
+      </div>
+
+      <div class="admin-user-number-grid">
+        <% lottery.numbers.forEach(function(n) { %>
+          <div class="admin-user-number-box <%= lottery.byNumber[n].tickets > 0 ? 'followed' : '' %>">
+            <span class="admin-user-number-label"><%= n %></span>
+            <% if (lottery.byNumber[n].tickets > 0) { %>
+              <span class="admin-user-number-meta"><%= lottery.byNumber[n].tickets %> tkt<%= lottery.byNumber[n].tickets === 1 ? '' : 's' %></span>
+              <% if (lottery.byNumber[n].amount > 0) { %><span class="admin-user-number-meta"><%= lottery.byNumber[n].amount %></span><% } %>
+            <% } %>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
+<%- include('partial-footer') %>

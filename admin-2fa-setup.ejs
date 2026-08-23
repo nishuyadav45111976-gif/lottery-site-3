@@ -1,0 +1,5 @@
+<%- include('partial-header', { title: 'Admin 2FA Setup' }) %>
+<div class="container"><h1>Set up Admin 2FA</h1><p class="subtitle">You are enabling Admin 2FA. Add this secret to Google Authenticator, Microsoft Authenticator, Authy, or another TOTP app.</p>
+<div class="card"><p><strong>Secret</strong></p><code style="word-break:break-all; font-size:1.1rem;"><%= secret %></code><p class="subtitle">If your authenticator supports manual setup, use the secret above. Issuer: Lottery Results.</p><details><summary>Advanced: otpauth URI</summary><p><code style="word-break:break-all;"><%= otpauth %></code></p></details></div>
+<% if(error){ %><div class="error-msg"><%= error %></div><% } %>
+<form class="form-box" method="post" action="/admin/2fa/setup"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Authenticator code</label><input name="otp" inputmode="numeric" maxlength="6" required><button class="btn primary">Verify & Enable 2FA</button></form></div><%- include('partial-footer') %>

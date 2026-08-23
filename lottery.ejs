@@ -1,0 +1,25 @@
+<%- include('partial-header', { title: lottery.name + ' Results' }) %>
+
+<a class="back-link" href="/"><%= t('lotteryBackAll') %></a>
+<h1><%= lottery.name %></h1>
+<p class="subtitle"><%= t('lotterySubtitle') %></p>
+
+<% if (results.length === 0) { %>
+  <div class="empty-state"><%= t('lotteryEmpty') %></div>
+<% } else { %>
+  <table>
+    <thead>
+      <tr><th><%= t('colDate') %></th><th><%= t('colResult') %></th></tr>
+    </thead>
+    <tbody>
+      <% results.forEach(function(r) { %>
+        <tr>
+          <td><%= r.date %></td>
+          <td class="result-cell"><%= r.resultText %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('partial-footer') %>

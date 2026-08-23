@@ -1,0 +1,77 @@
+  </main>
+
+  <% if (typeof contactNumber !== 'undefined' && contactNumber) { %>
+    <div class="contact-bar">
+      <span class="contact-label"><%= contactLabel %>:</span>
+      <% if (contactType === 'whatsapp') { %>
+        <a class="contact-number" href="https://wa.me/<%= contactDigits %>" target="_blank" rel="noopener"><%= contactNumber %></a>
+      <% } else { %>
+        <a class="contact-number" href="tel:<%= contactNumber %>"><%= contactNumber %></a>
+      <% } %>
+    </div>
+  <% } %>
+
+  <script>
+    (function(){var b=document.getElementById('mobileNavToggle'),n=document.getElementById('siteNav');if(!b||!n)return;b.addEventListener('click',function(){var open=n.classList.toggle('mobile-open');b.setAttribute('aria-expanded',open?'true':'false');});})();
+
+    // Dark mode toggle — applies immediately and remembers the choice
+    (function () {
+      var btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+      function updateIcon() { btn.textContent = isDark() ? '☀️' : '🌙'; }
+      updateIcon();
+      btn.addEventListener('click', function () {
+        if (isDark()) {
+          document.documentElement.removeAttribute('data-theme');
+          try { localStorage.setItem('theme', 'light'); } catch (e) {}
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+        }
+        updateIcon();
+      });
+    })();
+  </script>
+
+  <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+
+      // "Install App" button — only appears once the browser says the site
+      // is installable (mainly Chrome/Edge on Android/desktop; Safari/iOS
+      // doesn't support this prompt, so the button just won't show there).
+      (function () {
+        var deferredPrompt = null;
+        var bar = document.getElementById('installAppBar');
+        var btn = document.getElementById('installAppBtn');
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          deferredPrompt = e;
+          if (bar) bar.style.display = 'block';
+        });
+
+        if (btn) {
+          btn.addEventListener('click', function () {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.finally(function () {
+              deferredPrompt = null;
+              if (bar) bar.style.display = 'none';
+            });
+          });
+        }
+
+        window.addEventListener('appinstalled', function () {
+          if (bar) bar.style.display = 'none';
+        });
+      })();
+    </script>
+  <% } %>
+</body>
+</html>

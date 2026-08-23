@@ -1,0 +1,16 @@
+<%- include('partial-header') %>
+<div class="container">
+  <h1>My Account</h1>
+  <p class="subtitle">Sign in to follow numbers and receive result notifications.</p>
+  <% if (notice) { %><div class="flash success"><%= notice %></div><% } %>
+  <% if (error) { %><div class="flash error"><%= error %></div><% } %>
+  <form class="form-box" method="post" action="/login"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label for="userCode">Personal ID</label>
+    <input id="userCode" type="text" name="userCode" autocomplete="username" required />
+    <label for="password">Password</label>
+    <input id="password" type="password" name="password" autocomplete="current-password" required />
+    <button class="btn primary" type="submit">Login</button>
+  <p class="subtitle" style="margin-top:10px;"><a href="/recover">Forgot your password?</a></p>
+  </form>
+</div>
+<%- include('partial-footer') %>

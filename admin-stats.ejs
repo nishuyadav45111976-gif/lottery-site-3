@@ -1,0 +1,71 @@
+<%- include('partial-header', { title: 'Site Stats' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Site Stats</h1>
+<p class="subtitle">Totals across every lottery, from your ticket purchase records.</p>
+
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="stat-value"><%= totalLotteries %></div>
+    <div class="stat-label">Lotteries</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value"><%= totalResults %></div>
+    <div class="stat-label">Results Posted</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value"><%= totalTickets %></div>
+    <div class="stat-label">Tickets Sold</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value"><%= totalAmount %></div>
+    <div class="stat-label">Total Amount</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value"><%= uniqueBuyers %></div>
+    <div class="stat-label">Unique Buyers</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value"><%= busiestLottery && busiestLottery.tickets > 0 ? busiestLottery.name : '—' %></div>
+    <div class="stat-label">Busiest Lottery</div>
+  </div>
+  <div class="stat-box"><div class="stat-value"><%= todaysVisits %></div><div class="stat-label">Visits Today</div></div><div class="stat-box"><div class="stat-value"><%= todaysUnique %></div><div class="stat-label">Unique Sessions Today</div></div>
+</div>
+
+<h2 style="margin-top:32px;">Visits — Last 14 Days</h2>
+<p class="subtitle">Public page views plus privacy-friendly unique session counts. No IP addresses are stored.</p>
+<table>
+  <thead>
+    <tr><th>Date</th><th>Visits</th><th>Unique Sessions</th></tr>
+  </thead>
+  <tbody>
+    <% last14Days.forEach(function(d) { %>
+      <tr>
+        <td class="dim-cell"><%= d.date %></td>
+        <td class="result-cell"><%= d.visits %></td><td class="result-cell"><%= d.uniqueSessions %></td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<h2 style="margin-top:32px;">By Lottery</h2>
+<% if (perLottery.length === 0) { %>
+  <div class="empty-state">No lotteries yet.</div>
+<% } else { %>
+  <table>
+    <thead>
+      <tr><th>Lottery</th><th>Tickets</th><th>Amount</th></tr>
+    </thead>
+    <tbody>
+      <% perLottery.forEach(function(l) { %>
+        <tr>
+          <td><%= l.name %></td>
+          <td class="result-cell"><%= l.tickets %></td>
+          <td class="result-cell"><%= l.amount %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('partial-footer') %>

@@ -1,0 +1,44 @@
+<%- include('partial-header', { title: 'Admin 2FA' }) %>
+<div class="container">
+  <div class="page-back"><a href="/admin/settings">← Settings</a></div>
+  <h1>Admin 2FA</h1>
+  <div class="flash-msg" style="<%= enabled ? '' : 'background:#fff3cd;color:#664d03;border-color:#ffecb5;' %>">
+    <strong>2FA: <%= enabled ? 'Enabled' : 'Disabled' %></strong><br>
+    <span><%= enabled ? 'Admin sign-in requires your authenticator code.' : 'Admin sign-in currently uses your password only. You can enable 2FA whenever you want.' %></span>
+  </div>
+
+  <% if (enabled) { %>
+    <div class="card" style="margin-top:20px">
+      <h2>Change authenticator</h2>
+      <p class="subtitle">Regenerating 2FA invalidates all existing admin sessions and requires setup of the new authenticator.</p>
+      <form class="form-box" method="post" action="/admin/settings/2fa/regenerate">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Current admin password</label><input type="password" name="currentPassword" required>
+        <label>Current authenticator code</label><input name="otp" inputmode="numeric" maxlength="6" required>
+        <button class="btn secondary" type="submit" onclick="return confirm('Regenerate 2FA and log out all admin sessions?')">Regenerate 2FA</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;border-color:#f5c2c7">
+      <h2>Disable 2FA</h2>
+      <p class="subtitle">This reduces admin account security. You must re-enter your current password and current authenticator code. All admin sessions will be logged out.</p>
+      <form class="form-box" method="post" action="/admin/settings/2fa/disable">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Current admin password</label><input type="password" name="currentPassword" required>
+        <label>Current authenticator code</label><input name="otp" inputmode="numeric" maxlength="6" required>
+        <button class="btn secondary" type="submit" onclick="return confirm('Disable admin 2FA? You will be logged out and admin access will be less secure until 2FA is enabled again.')">Disable 2FA</button>
+      </form>
+    </div>
+  <% } else { %>
+    <div class="card" style="margin-top:20px">
+      <h2>Enable 2FA</h2>
+      <p class="subtitle">Enter your current admin password to start a new authenticator setup. You will need to verify the generated code before 2FA is enabled.</p>
+      <form class="form-box" method="post" action="/admin/settings/2fa/enable">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Current admin password</label><input type="password" name="currentPassword" required>
+        <button class="btn secondary" type="submit">Start 2FA setup</button>
+      </form>
+    </div>
+  <% } %>
+</div>
+<%- include('partial-footer') %>

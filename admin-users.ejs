@@ -1,0 +1,18 @@
+<%- include('partial-header', { title: 'User Accounts' }) %>
+<div class="container">
+  <div class="page-back"><a href="/admin">← Back to Admin Dashboard</a></div>
+  <div class="top-actions"><div><h1 style="margin:0;">User Accounts</h1><p class="subtitle">Create personal accounts for result notifications and number-following.</p></div><div class="top-actions-inline"><a class="btn secondary" href="/admin/users/existing">Existing User</a><a class="btn secondary" href="/admin">Dashboard</a></div></div>
+  <% if (typeof flash !== 'undefined' && flash) { %><div class="flash-msg">✓ <%= flash %></div><% } %>
+  <% if (error) { %><div class="error-msg"><%= error %></div><% } %>
+  <form class="form-box" method="post" action="/admin/users"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label>Name</label><input type="text" name="name" required />
+    <label>Personal ID</label><input type="text" name="userCode" required />
+    <label>Temporary password</label><input type="password" name="password" minlength="8" required />
+    <button class="btn primary" type="submit">Create Account</button>
+  </form>
+  <div class="card clean-empty-card">
+    <h2>Create a new user account</h2>
+    <p class="subtitle">Existing accounts are managed separately under <strong>Existing User</strong>.</p>
+  </div>
+</div>
+<%- include('partial-footer') %>

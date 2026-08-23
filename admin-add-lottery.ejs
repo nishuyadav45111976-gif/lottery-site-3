@@ -1,0 +1,20 @@
+<%- include('partial-header', { title: 'Add Lottery' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Add New Lottery</h1>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/lottery/new"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="name">Lottery Name</label>
+  <input type="text" id="name" name="name" placeholder="e.g. Morning Draw" autofocus required />
+
+  <label for="drawTime">Draw Time (optional — 24-hour format is saved)</label>
+  <input type="text" id="drawTime" name="drawTime" placeholder="e.g. 08:00 or 05:00 AM" />
+
+  <button type="submit">Add Lottery</button>
+</form>
+
+<%- include('partial-footer') %>

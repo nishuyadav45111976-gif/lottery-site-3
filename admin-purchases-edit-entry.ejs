@@ -1,0 +1,30 @@
+<%- include('partial-header', { title: lottery.name + ' — Edit Entry' }) %>
+
+<a class="back-link" href="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>">&larr; No. <%= number %></a>
+<h1><%= lottery.name %> &mdash; Edit Entry</h1>
+<p class="subtitle">No. <%= number %></p>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>/<%= entry.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="userId">User account</label>
+  <select id="userId" name="userId">
+    <option value="">— Internal / no account —</option>
+    <% (users || []).forEach(function(u) { %><option value="<%= u.id %>" <%= entry.userId === u.id ? "selected" : "" %>><%= u.name %> — <%= u.userCode %></option><% }); %>
+  </select>
+
+  <label for="buyerName">Buyer Name</label>
+  <input type="text" id="buyerName" name="buyerName" value="<%= entry.buyerName %>" required />
+
+  <label for="tickets">No. of Tickets</label>
+  <input type="text" id="tickets" name="tickets" inputmode="numeric" value="<%= entry.tickets %>" required />
+
+  <label for="amount">Amount (optional)</label>
+  <input type="text" id="amount" name="amount" inputmode="decimal" value="<%= entry.amount || '' %>" placeholder="e.g. 500" />
+
+  <button type="submit">Save Changes</button>
+</form>
+
+<%- include('partial-footer') %>

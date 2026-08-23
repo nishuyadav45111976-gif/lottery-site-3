@@ -1,0 +1,141 @@
+<%- include('partial-header', { title: siteName }) %>
+
+<h1><%= siteName %></h1>
+<p class="subtitle"><%= t('tagline') %></p>
+<% if (lastUpdated) { %>
+  <p class="subtitle" style="font-size:0.82rem; margin-top:-8px;"><%= t('lastUpdatedLabel') %>: <%= lastUpdated %></p>
+<% } %>
+
+
+<% const upcomingLotteries = lotteries.filter(l => l.upcoming); if (upcomingLotteries.length) { %>
+  <div class="upcoming-card" aria-live="polite">
+    <h2 style="margin:0 0 8px;">🕐 Upcoming Lottery</h2>
+    <% upcomingLotteries.slice(0,4).forEach(function(lottery) { %>
+      <div class="upcoming-item"><strong><%= lottery.name %></strong><span>Draw: <%= lottery.upcoming.drawTime %></span><span><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Today · ' + lottery.upcoming.remainingText + ' left') %></span></div>
+    <% }); %>
+  </div>
+<% } %>
+
+<% if (starredLottery) { %>
+  <div class="featured-box">
+    <div class="featured-label">⭐ <%= t('featuredLabel') %></div>
+    <div class="featured-name"><%= starredLottery.name %></div>
+    <% if (starredLottery.drawTime) { %><div class="featured-time"><%= starredLottery.drawTime %></div><% } %>
+    <div class="featured-result">
+      <%= starredLottery.latestResult ? starredLottery.latestResult.resultText : 'XX' %>
+      <% if (starredLottery.latestResult) { %><span class="featured-date"><%= starredLottery.latestResult.date %></span><% } else if (starredLottery.upcoming) { %>
+        <span class="featured-date"><%= starredLottery.upcoming.pendingResult ? 'Result pending' : 'Today · ' + starredLottery.upcoming.remainingText + ' left' %></span>
+      <% } %>
+    </div>
+  </div>
+<% } %>
+
+<% if (mainLotteries.length > 0) { %>
+  <h2 style="margin-top:28px;"><%= t('mainResultsHeading') %></h2>
+  <div class="card-grid">
+    <% mainLotteries.forEach(function(lottery) { %>
+      <a class="lottery-card" href="/lottery/<%= lottery.slug %>">
+        <div class="name"><%= lottery.name %></div>
+        <% if (lottery.latestResult) { %>
+          <div class="result"><%= lottery.latestResult.resultText %></div>
+          <div class="date">Latest · <%= lottery.latestResult.date %></div>
+        <% } else if (lottery.upcoming) { %>
+          <div class="result">XX</div>
+          <div class="date"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
+        <% } else { %>
+          <div class="no-result"><%= t('noResultYet') %></div>
+        <% } %>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<% if (lotteries.length === 0) { %>
+  <div class="empty-state"><%= t('emptyLotteries') %></div>
+<% } else { %>
+  <% if (lotteries.length > 5) { %>
+    <input type="text" id="lotterySearch" class="search-box" placeholder="<%= t('searchPlaceholder') %>" onkeyup="filterLotteryTable()" style="margin-top:24px;" />
+  <% } %>
+  <table id="lotteryTable">
+    <thead>
+      <tr>
+        <th><%= t('tableLottery') %></th>
+        <th><%= t('tableTime') %></th>
+        <th><%= t('tablePrevious') %></th>
+        <th><%= t('tableLatest') %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% lotteries.forEach(function(lottery) { %>
+        <tr class="<%= lottery.starred ? 'highlight-row' : '' %>" data-name="<%= lottery.name.toLowerCase() %>">
+          <td>
+            <a class="lottery-link" href="/lottery/<%= lottery.slug %>">
+              <%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %>
+            </a>
+          </td>
+          <td class="dim-cell"><%= lottery.drawTime || '—' %></td>
+          <td class="result-cell">
+            <%= lottery.previousResult ? lottery.previousResult.resultText : 'XX' %>
+            <% if (lottery.previousResult) { %><div class="date-sub"><%= lottery.previousResult.date %></div><% } %>
+          </td>
+          <td class="result-cell">
+            <%= lottery.latestResult ? lottery.latestResult.resultText : 'XX' %>
+            <% if (lottery.latestResult) { %>
+              <div class="date-sub"><%= lottery.latestResult.date %></div>
+            <% } else if (lottery.upcoming) { %>
+              <div class="date-sub"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Today · ' + lottery.upcoming.remainingText + ' left') %></div>
+            <% } %>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <div id="noSearchResults" class="empty-state" style="display:none;"><%= t('noSearchResults') %></div>
+<% } %>
+
+<% if (recentRows.length > 0) { %>
+  <h2 style="margin-top:32px;"><%= t('last15Heading') %></h2>
+  <p class="subtitle"><%= t('last15Sub') %></p>
+  <div class="scroll-grid">
+    <table>
+      <thead>
+        <tr>
+          <th><%= t('colDate') %></th>
+          <% lotteries.forEach(function(lottery) { %>
+            <th><%= lottery.name %></th>
+          <% }); %>
+        </tr>
+      </thead>
+      <tbody>
+        <% recentRows.forEach(function(row) { %>
+          <tr>
+            <td class="dim-cell"><%= row.date %></td>
+            <% row.cells.forEach(function(cell) { %>
+              <td class="result-cell"><%= cell %></td>
+            <% }); %>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<p class="subtitle" style="margin-top:20px;"><a class="back-link" href="/history"><%= t('viewFullHistory') %></a></p>
+
+<% if (lotteries.length > 5) { %>
+<script>
+  function filterLotteryTable() {
+    var query = document.getElementById('lotterySearch').value.trim().toLowerCase();
+    var rows = document.querySelectorAll('#lotteryTable tbody tr');
+    var visibleCount = 0;
+    rows.forEach(function (row) {
+      var match = row.getAttribute('data-name').indexOf(query) !== -1;
+      row.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    });
+    document.getElementById('noSearchResults').style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+</script>
+<% } %>
+
+<%- include('partial-footer') %>

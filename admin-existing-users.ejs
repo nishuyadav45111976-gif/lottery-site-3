@@ -1,0 +1,50 @@
+<%- include('partial-header', { title: 'Existing Users' }) %>
+<div class="container">
+  <div class="page-back"><a href="/admin/users">← Back to User Accounts</a></div>
+  <div class="top-actions">
+    <div><h1 style="margin:0;">Existing Users</h1><p class="subtitle">View user ticket purchases, account status, and reset passwords when needed.</p></div>
+    <a class="btn secondary" href="/admin">Dashboard</a>
+  </div>
+  <% if (typeof flash !== 'undefined' && flash) { %><div class="flash-msg">✓ <%= flash %></div><% } %>
+  <form class="search-form" method="get" action="/admin/users/existing"><input class="search-box" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Search by name or Personal ID" aria-label="Search users"><button class="btn secondary">Search</button></form>
+  <% if (!users.length) { %>
+    <div class="card"><p class="empty-state">No user accounts created yet.</p></div>
+  <% } %>
+  <% users.forEach(u => { %>
+    <div class="card admin-existing-user-card">
+      <div class="admin-user-head">
+        <div>
+          <h2 style="margin:0 0 4px;"><%= u.name %></h2>
+          <span>Personal ID: <strong><%= u.userCode %></strong> · <%= u.active ? 'Active' : 'Disabled' %></span>
+        </div>
+        <div class="actions">
+          <a class="btn secondary" href="/admin/users/<%= u.id %>">View Purchased Numbers</a>
+          <form method="post" action="/admin/users/<%= u.id %>/toggle"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('<%= u.active ? 'Disable' : 'Enable' %> this user account?')"><%= u.active ? 'Disable' : 'Enable' %></button></form>
+        </div>
+      </div>
+
+      <div class="user-detail-summary">
+        <div><strong><%= u.purchasedCount %></strong><span>Numbers bought</span></div>
+        <div><strong><%= u.totalTickets %></strong><span>Total tickets</span></div>
+        <div><strong><%= u.totalAmount %></strong><span>Total amount</span></div>
+      </div>
+
+      <% if (u.purchased.length) { %>
+        <div class="existing-user-followed-list">
+          <strong>Purchased numbers</strong>
+          <div class="followed-chip-list">
+            <% u.purchased.forEach(p => { %><span class="followed-chip"><%= p.lotteryName %> · <%= p.number %> · <%= p.tickets %> tkt<%= p.tickets === 1 ? '' : 's' %> · <%= p.amount %></span><% }) %>
+          </div>
+        </div>
+      <% } else { %>
+        <p class="empty-state">This user has not entered any ticket purchases yet.</p>
+      <% } %>
+
+      <% if (u.recoveryCodeNotice) { %><div class="flash-msg">Recovery code: <strong><%= u.recoveryCodeNotice %></strong></div><% } %><form class="inline-reset-form" method="post" action="/admin/users/<%= u.id %>/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Set a new password for this user</label>
+        <div class="reset-row"><input type="password" name="password" minlength="8" placeholder="New password" required /><button class="btn secondary" type="submit" onclick="return confirm('Reset this user password?')">Reset Password</button></div>
+      </form><form method="post" action="/admin/users/<%= u.id %>/recovery-code"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('Generate a new recovery code? The old code will stop working.')">Generate Recovery Code</button></form>
+    </div>
+  <% }) %>
+</div>
+<%- include('partial-footer') %>

@@ -1,0 +1,26 @@
+<%- include('partial-header', { title: lottery.name + ' — Ticket Purchases' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1><%= lottery.name %> &mdash; Number Records</h1>
+<p class="subtitle">Your existing internal ticket records are shown here. User-followed numbers are also shown separately so you can see which account is watching each number.</p>
+
+<a class="btn secondary" style="margin:12px 0 20px;" href="/admin/lottery/<%= lottery.id %>/purchases/export.csv">Export Ticket Records as CSV</a>
+
+<div class="number-grid">
+  <% numbers.forEach(function(n) { %>
+    <a class="number-box <%= (totals[n].tickets > 0 || totals[n].followers > 0) ? 'has-entries' : '' %>" href="/admin/lottery/<%= lottery.id %>/purchases/<%= n %>">
+      <div class="num-label"><%= n %></div>
+      <% if (totals[n].tickets > 0) { %>
+        <div class="num-meta"><%= totals[n].tickets %> tkt<%= totals[n].tickets === 1 ? '' : 's' %></div>
+      <% } %>
+      <% if (totals[n].amount > 0) { %>
+        <div class="num-meta"><%= totals[n].amount %></div>
+      <% } %>
+      <% if (totals[n].followers > 0) { %>
+        <div class="num-meta follower-meta"><%= totals[n].followers %> user<%= totals[n].followers === 1 ? '' : 's' %> following</div>
+      <% } %>
+    </a>
+  <% }); %>
+</div>
+
+<%- include('partial-footer') %>

@@ -1,0 +1,63 @@
+<%- include('partial-header', { title: 'Website Settings' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Website Settings</h1>
+<p class="subtitle">Change the name shown at the top of your website.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="siteName">Website Name</label>
+  <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
+
+  <label for="contactLabel">Contact Bar Label</label>
+  <input type="text" id="contactLabel" name="contactLabel" value="<%= currentContactLabel %>" placeholder="Help & Queries" />
+
+  <label for="contactNumber">Contact Number</label>
+  <input type="text" id="contactNumber" name="contactNumber" value="<%= currentContactNumber %>" placeholder="e.g. +91 98765 43210" />
+  <p class="subtitle" style="margin-top:6px; font-size:0.82rem;">Shown highlighted at the bottom of every page. Leave the number blank to hide it.</p>
+
+  <label for="contactType">When tapped, this number should</label>
+  <select id="contactType" name="contactType">
+    <option value="call" <%= currentContactType === 'call' ? 'selected' : '' %>>Make a phone call</option>
+    <option value="whatsapp" <%= currentContactType === 'whatsapp' ? 'selected' : '' %>>Open WhatsApp chat</option>
+  </select>
+
+  <button type="submit">Save Settings</button>
+</form>
+
+<h1 style="margin-top:36px;">Change Admin Password</h1>
+<p class="subtitle">Update the password used to log into this admin panel. You'll be logged out afterwards and need to sign in again.</p>
+
+<% if (passwordError) { %>
+  <div class="error-msg"><%= passwordError %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/settings/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="currentPassword">Current Password</label>
+  <input type="password" id="currentPassword" name="currentPassword" required />
+
+  <label for="newPassword">New Password</label>
+  <input type="password" id="newPassword" name="newPassword" required minlength="8" />
+  <p class="subtitle" style="margin-top:6px; font-size:0.82rem;">At least 8 characters.</p>
+
+  <label for="confirmPassword">Confirm New Password</label>
+  <input type="password" id="confirmPassword" name="confirmPassword" required minlength="8" />
+
+  <button type="submit">Change Password</button>
+</form>
+
+<h1 style="margin-top:36px;">Admin 2FA</h1>
+<p class="subtitle">Authenticator-based two-factor authentication is optional. When enabled, admin sign-in requires your authenticator code.</p><a class="btn secondary" href="/admin/settings/2fa">View 2FA Status</a>
+
+<h1 style="margin-top:36px;">Backup Your Data</h1>
+<p class="subtitle">Download everything on this site — lotteries, results, and ticket purchase records — as a single file you can keep for yourself.</p>
+<a class="btn secondary" href="/admin/settings/backup">Download Backup</a>
+
+<%- include('partial-footer') %>

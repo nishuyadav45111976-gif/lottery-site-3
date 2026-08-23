@@ -1,0 +1,73 @@
+<%- include('partial-header', { title: 'Admin Dashboard' }) %>
+
+<div class="top-actions">
+  <h1 style="margin:0;">Admin Dashboard</h1>
+  <form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit">Log Out</button></form>
+</div>
+<p class="subtitle">Add new lotteries, update daily results, and manage your site.</p>
+
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (typeof quickSummary !== 'undefined') { %><div class="admin-quick-grid"><div class="stat-box"><div class="stat-value"><%= quickSummary.users %></div><div class="stat-label">Users</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.totalTickets %></div><div class="stat-label">Tickets</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.totalAmount %></div><div class="stat-label">Total Amount</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.lotteries %></div><div class="stat-label">Lotteries</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.database ? 'OK' : 'ERROR' %></div><div class="stat-label">Database</div></div></div><% } %>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<div style="display:flex; gap:10px; flex-wrap:wrap;">
+  <a class="btn" href="/admin/lottery/new">+ Add New Lottery</a>
+  <a class="btn secondary" href="/admin/settings">Website Settings</a>
+  <a class="btn secondary" href="/admin/stats">Site Stats</a>
+  <a class="btn secondary" href="/admin/audit-log">Audit Log</a>
+  <a class="btn secondary" href="/admin/users">User Accounts</a>
+</div>
+
+<% if (lotteries.length === 0) { %>
+  <div class="empty-state">No lotteries yet. Add your first one above.</div>
+<% } else { %>
+  <% lotteries.forEach(function(lottery) { %>
+    <div class="admin-row <%= lottery.starred ? 'starred-row' : '' %>">
+      <div class="left">
+        <a href="/admin/lottery/<%= lottery.id %>/result">
+          <%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %>
+        </a>
+        <div class="meta"><strong>Draw: <%= lottery.drawTime || '—' %></strong> · <span class="lottery-status"><%= lottery.entryStatus && lottery.entryStatus.locked ? '🔒 CLOSED' : '🟢 OPEN' %></span><% if (lottery.entryStatus && lottery.entryStatus.cutoff !== '—') { %> · closes <%= lottery.entryStatus.cutoff %><% } %></div>
+        <div class="meta">
+          <% if (lottery.latestResult) { %>
+            Latest: <%= lottery.latestResult.resultText %> (<%= lottery.latestResult.date %>)
+          <% } else { %>
+            No result posted yet
+          <% } %>
+        </div>
+        <% if (lottery.purchaseTotals && lottery.purchaseTotals.tickets > 0) { %>
+          <div class="meta purchase-summary">
+            🎟️ <%= lottery.purchaseTotals.tickets %> ticket<%= lottery.purchaseTotals.tickets === 1 ? '' : 's' %> sold<% if (lottery.purchaseTotals.amount > 0) { %> &middot; <%= lottery.purchaseTotals.amount %> total<% } %>
+          </div>
+        <% } %>
+      </div>
+      <div class="actions">
+        <form method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn star-btn <%= lottery.starred ? 'active' : '' %>" title="<%= lottery.starred ? 'Remove star' : 'Star this lottery' %>">
+            <%= lottery.starred ? '⭐' : '☆' %>
+          </button>
+        </form>
+        <form method="POST" action="/admin/lottery/<%= lottery.id %>/main"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn main-btn <%= lottery.isMain ? 'active' : '' %>" title="<%= lottery.isMain ? 'Remove from main grid' : 'Show in main homepage grid (max 4)' %>">
+            <%= lottery.isMain ? '✔ Main' : '+ Main' %>
+          </button>
+        </form>
+        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/result">Update Result</a>
+        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/purchases">Ticket Purchases</a>
+        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/edit">Edit</a>
+        <form method="POST" action="/admin/lottery/<%= lottery.id %>/delete" onsubmit="return confirm('Delete this lottery and all its results? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
+<%- include('partial-footer') %>
