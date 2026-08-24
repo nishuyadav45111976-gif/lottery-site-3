@@ -1,0 +1,14 @@
+<%- include('partial-header', { title: 'Settings' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Settings</h1>
+<p class="subtitle">Everything to do with how your site is configured and how it's performing.</p>
+
+<div style="display:flex; flex-direction:column; gap:10px; max-width:360px;">
+  <a class="btn secondary" href="/admin/settings">Website Settings</a>
+  <a class="btn secondary" href="/admin/pages">Edit Pages</a>
+  <a class="btn secondary" href="/admin/stats">Site Stats</a>
+  <a class="btn secondary" href="/admin/audit-log">Audit Log</a>
+</div>
+
+<%- include('partial-footer') %>

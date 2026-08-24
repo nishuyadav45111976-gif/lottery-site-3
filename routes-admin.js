@@ -313,6 +313,13 @@ function getLotteriesWithLatest() {
   });
 }
 
+// A single "Settings" hub linking to the pages that used to sit as
+// separate buttons directly on the dashboard (Website Settings, Edit
+// Pages, Site Stats, Audit Log) — keeps the dashboard itself uncluttered.
+router.get('/hub', (req, res) => {
+  res.render('admin-hub', {});
+});
+
 router.get('/', async (req, res) => {
   const dbHealth=await db.healthCheck();
   const lotteries=getLotteriesWithLatest(); const purchases=db.get('purchases').value()||[]; const users=db.get('users').value()||[]; const totalTickets=purchases.reduce((s,p)=>s+(Number(p.tickets)||0),0); const totalAmount=purchases.reduce((s,p)=>s+(Number(p.amount)||0),0);
