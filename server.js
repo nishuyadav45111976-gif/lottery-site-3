@@ -138,6 +138,13 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
 });
 
+// Publishes any result an admin scheduled ahead of time (entered during the
+// closing window, held back until draw time) the moment its time arrives —
+// no admin needs to be online at that exact moment for it to go live.
+setInterval(() => {
+  db.publishDueScheduledResults().catch((e) => console.error('Scheduled publish check failed:', e));
+}, 30 * 1000);
+
 // Automatically move results older than 40 days into the trash (see
 // db.cleanupOldResults). Run once on startup, then once a day after that.
 const removedOnStartup = db.cleanupOldResults();

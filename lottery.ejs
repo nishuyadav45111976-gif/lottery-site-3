@@ -2,6 +2,13 @@
 
 <a class="back-link" href="/"><%= t('lotteryBackAll') %></a>
 <h1><%= lottery.name %></h1>
+<div class="share-row" style="display:flex; gap:8px; margin:-4px 0 10px;">
+  <a class="btn secondary" style="padding:4px 10px; font-size:0.78rem;" target="_blank" rel="noopener"
+     href="https://wa.me/?text=<%= encodeURIComponent(lottery.name + ' results: ' + currentUrl) %>">📲 WhatsApp</a>
+  <a class="btn secondary" style="padding:4px 10px; font-size:0.78rem;" target="_blank" rel="noopener"
+     href="https://t.me/share/url?url=<%= encodeURIComponent(currentUrl) %>&text=<%= encodeURIComponent(lottery.name + ' results') %>">✈️ Telegram</a>
+  <a class="btn secondary" style="padding:4px 10px; font-size:0.78rem;" href="/lottery/<%= lottery.slug %>/frequency">📊 Number Frequency</a>
+</div>
 <p class="subtitle"><%= t('lotterySubtitle') %></p>
 
 <% if (results.length === 0) { %>
@@ -21,5 +28,20 @@
     </tbody>
   </table>
 <% } %>
+
+<script>
+  // If the person leaves this tab/app and comes back later, quietly refresh
+  // so they see the latest result instead of a stale page from before.
+  (function () {
+    var wasHidden = false;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (document.visibilityState === 'visible' && wasHidden) {
+        location.reload();
+      }
+    });
+  })();
+</script>
 
 <%- include('partial-footer') %>

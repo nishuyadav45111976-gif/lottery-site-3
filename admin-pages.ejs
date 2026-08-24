@@ -1,0 +1,34 @@
+<%- include('partial-header', { title: 'Edit Pages' }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>Edit Pages</h1>
+<p class="subtitle">Change your website name and the text shown on your Disclaimer, Privacy Policy, and About pages — no code changes needed, updates go live as soon as you save.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/pages"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="siteName">Website Name</label>
+  <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
+
+  <label for="disclaimerText" style="margin-top:20px;">Disclaimer page content</label>
+  <p class="subtitle" style="margin-top:-4px;">Shown at <code>/disclaimer</code>. Leave a blank line between paragraphs.</p>
+  <textarea id="disclaimerText" name="disclaimerText" rows="6" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= disclaimerText %></textarea>
+
+  <label for="privacyText" style="margin-top:20px;">Privacy Policy & Terms content</label>
+  <p class="subtitle" style="margin-top:-4px;">Shown at <code>/privacy</code>.</p>
+  <textarea id="privacyText" name="privacyText" rows="6" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= privacyText %></textarea>
+
+  <label for="aboutText" style="margin-top:20px;">About / Contact page content</label>
+  <p class="subtitle" style="margin-top:-4px;">Shown at <code>/about</code>.</p>
+  <textarea id="aboutText" name="aboutText" rows="6" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= aboutText %></textarea>
+
+  <button type="submit" style="margin-top:18px;">Save Pages</button>
+</form>
+
+<%- include('partial-footer') %>

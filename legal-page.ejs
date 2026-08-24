@@ -1,0 +1,14 @@
+<%- include('partial-header', { title: title, metaDescription: metaDescription }) %>
+
+<a class="back-link" href="/">&larr; Back to results</a>
+<h1><%= title %></h1>
+
+<% if (content && content.trim()) { %>
+  <% content.trim().split(/\n\s*\n/).forEach(function(paragraph) { %>
+    <p class="subtitle" style="color:inherit; font-size:1rem; line-height:1.6;"><%= paragraph.trim() %></p>
+  <% }); %>
+<% } else { %>
+  <p class="subtitle">This page hasn't been filled in yet. An admin can add this content from Edit Pages in the admin panel.</p>
+<% } %>
+
+<%- include('partial-footer') %>

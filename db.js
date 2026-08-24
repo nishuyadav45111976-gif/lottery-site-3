@@ -9,7 +9,12 @@ const { hashPassword } = require('./utils');
 
 const defaults = {
   lotteries: [], results: [], purchases: [], users: [], watchedNumbers: [],
-  notifications: [], settings: { siteName: 'Haryana Results' }, auditLog: [],
+  notifications: [], settings: {
+    siteName: 'Haryana Results',
+    disclaimerText: 'This site provides lottery results for informational purposes only. Results are compiled from publicly available sources. We do not sell tickets, accept payments, or facilitate any real-money gambling. Please verify results with the official source before acting on them.',
+    privacyText: 'We collect only what is needed to run your account: a login session, and the ticket/number details you choose to save. Passwords are stored securely (hashed) and never in plain text. We do not sell your data to third parties. Use of this site is at your own discretion.',
+    aboutText: 'This site publishes daily lottery results for informational purposes. For questions, corrections, or support, please use the contact details shown at the bottom of the site.',
+  }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };
 
@@ -374,6 +379,77 @@ async function getVisitStats(days = 14) {
   const r = await pool.query(`SELECT visit_date::text AS date,visits,unique_sessions AS "uniqueSessions" FROM daily_visits WHERE visit_date>=CURRENT_DATE-$1::int ORDER BY visit_date DESC`, [days - 1]);
   return r.rows;
 }
+// Shared by both an immediate result post and the scheduled-publish checker,
+// so a follower only ever gets notified once, at the moment their number
+// actually becomes public — not the moment an admin merely saves it.
+function notifyResultWatchers(lottery, result) {
+  const publishedNumbers = (result.resultText.match(/\d{1,2}/g) || []).map((n) => n.padStart(2, '0'));
+  const matchingWatches = (dbGet('watchedNumbers').value() || []).filter(
+    (w) => w.lotteryId === lottery.id && publishedNumbers.includes(w.number)
+  );
+  matchingWatches.forEach((w) => {
+    const user = dbGet('users').find({ id: w.userId }).value();
+    if (!user || user.notificationsEnabled === false) return;
+    const already = dbGet('notifications').find({
+      userId: w.userId,
+      lotteryId: lottery.id,
+      resultDate: result.date,
+      number: w.number,
+    }).value();
+    if (already) return;
+    dbGet('notifications').push({
+      id: crypto.randomUUID(),
+      userId: w.userId,
+      lotteryId: lottery.id,
+      resultDate: result.date,
+      number: w.number,
+      title: 'Result notification',
+      message: `${lottery.name}: published result for ${result.date} contains your followed number ${w.number}.`,
+      createdAt: new Date().toISOString(),
+      readAt: null,
+      type: 'result',
+    }).write();
+    try {
+      const webpush = require('web-push');
+      const publicKey = process.env.VAPID_PUBLIC_KEY;
+      const privateKey = process.env.VAPID_PRIVATE_KEY;
+      const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
+      if (publicKey && privateKey && user.pushSubscription) {
+        webpush.setVapidDetails(subject, publicKey, privateKey);
+        webpush
+          .sendNotification(
+            user.pushSubscription,
+            JSON.stringify({
+              title: 'Result notification',
+              body: `${lottery.name}: your followed number ${w.number} appeared in the result for ${result.date}.`,
+              url: '/account',
+            })
+          )
+          .catch(() => {});
+      }
+    } catch (e) {
+      /* optional dependency/configuration */
+    }
+  });
+}
+
+// Checked on a short interval from server.js. Any result an admin scheduled
+// ahead of time (entered during the 15-minute closing window, but held back
+// until the official draw time) flips to published here, automatically,
+// even if nobody is looking at the admin panel at that exact moment.
+async function publishDueScheduledResults() {
+  const nowIso = new Date().toISOString();
+  const due = (dbGet('results').value() || []).filter(
+    (r) => r.published === false && r.scheduledFor && r.scheduledFor <= nowIso && !r.deletedAt
+  );
+  for (const result of due) {
+    dbGet('results').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
+    const lottery = dbGet('lotteries').find({ id: result.lotteryId }).value();
+    if (lottery) notifyResultWatchers(lottery, result);
+  }
+  if (due.length) await flushState();
+}
+
 async function healthCheck() {
   if (!postgresEnabled || !pool) return { ok: false, database: 'not-configured' };
   try { await pool.query('SELECT 1'); return { ok: true, database: 'postgresql' }; }
@@ -389,7 +465,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true) };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');

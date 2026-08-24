@@ -1,0 +1,20 @@
+<%- include('partial-header', { title: lottery.name + ' — Most Frequent Numbers', metaDescription: 'Historical number frequency for ' + lottery.name + '.' }) %>
+
+<a class="back-link" href="/lottery/<%= lottery.slug %>">&larr; Back to <%= lottery.name %></a>
+<h1><%= lottery.name %> — Most Frequent Numbers</h1>
+<p class="subtitle">How often each number has appeared in past published results, most frequent first.</p>
+
+<% if (frequency.length === 0) { %>
+  <div class="empty-state">No published results yet for this lottery.</div>
+<% } else { %>
+  <table>
+    <thead><tr><th>Number</th><th>Times appeared</th></tr></thead>
+    <tbody>
+      <% frequency.forEach(function(f) { %>
+        <tr><td><%= f.number %></td><td><%= f.count %></td></tr>
+      <% }); %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('partial-footer') %>

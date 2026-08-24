@@ -201,24 +201,44 @@ router.get('/settings/2fa', (req, res) => {
 });
 
 router.post('/settings', (req, res) => {
-  const { siteName, contactNumber, contactLabel, contactType } = req.body;
-  if (!siteName || !siteName.trim()) {
-    return res.render('admin-settings', {
-      currentName: db.get('settings.siteName').value() || 'Haryana Results',
-      currentContactNumber: db.get('settings.contactNumber').value() || '',
-      currentContactLabel: db.get('settings.contactLabel').value() || 'Help & Queries',
-      currentContactType: db.get('settings.contactType').value() || 'call',
-      error: 'Please enter a website name.',
-      passwordError: null,
-    });
-  }
-  db.set('settings.siteName', siteName.trim()).write();
+  const { contactNumber, contactLabel, contactType } = req.body;
   // Contact number/label are optional — leaving them blank hides the contact bar on the site
   db.set('settings.contactNumber', (contactNumber || '').trim()).write();
   db.set('settings.contactLabel', (contactLabel || '').trim() || 'Help & Queries').write();
   db.set('settings.contactType', contactType === 'whatsapp' ? 'whatsapp' : 'call').write();
-  logAction(req, 'Settings updated', `Site name: ${siteName.trim()}`);
+  logAction(req, 'Settings updated', 'Contact details updated');
   redirectWithFlash(res, '/admin', 'Settings saved');
+});
+
+// ---------- EDIT PAGES (site name + Disclaimer / Privacy / About content) ----------
+
+router.get('/pages', (req, res) => {
+  res.render('admin-pages', {
+    currentName: db.get('settings.siteName').value() || 'Haryana Results',
+    disclaimerText: db.get('settings.disclaimerText').value() || '',
+    privacyText: db.get('settings.privacyText').value() || '',
+    aboutText: db.get('settings.aboutText').value() || '',
+    error: null,
+  });
+});
+
+router.post('/pages', (req, res) => {
+  const { siteName, disclaimerText, privacyText, aboutText } = req.body;
+  if (!siteName || !siteName.trim()) {
+    return res.render('admin-pages', {
+      currentName: db.get('settings.siteName').value() || 'Haryana Results',
+      disclaimerText: disclaimerText || '',
+      privacyText: privacyText || '',
+      aboutText: aboutText || '',
+      error: 'Please enter a website name.',
+    });
+  }
+  db.set('settings.siteName', siteName.trim()).write();
+  db.set('settings.disclaimerText', (disclaimerText || '').trim()).write();
+  db.set('settings.privacyText', (privacyText || '').trim()).write();
+  db.set('settings.aboutText', (aboutText || '').trim()).write();
+  logAction(req, 'Pages updated', `Site name: ${siteName.trim()}`);
+  redirectWithFlash(res, '/admin/pages', 'Pages saved');
 });
 
 // ---------- BACKUP EXPORT ----------
@@ -465,19 +485,55 @@ router.get('/lottery/:id/result', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Lottery not found');
 
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const nowParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const todayStr = `${nowParts.find((p) => p.type === 'year').value}-${nowParts.find((p) => p.type === 'month').value}-${nowParts.find((p) => p.type === 'day').value}`;
+
   res.render('admin-update-result', {
     lottery,
     results: activeResultsFor(lottery.id),
     trashedResults: trashedResultsFor(lottery.id),
     error: null,
+    todayStr,
   });
 });
+
+// Combines a date (YYYY-MM-DD) and a draw time string (e.g. "8:00 AM") into
+// the correct UTC instant for that moment in LOTTERY_TIMEZONE. Since the
+// server requires LOTTERY_TIMEZONE=Asia/Kolkata (no daylight saving), a
+// simple fixed-offset correction is accurate here.
+function computeScheduledIso(dateStr, drawTime, timeZone) {
+  if (!drawTime) return null;
+  const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
+  let h, min;
+  let m = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/);
+  if (m) {
+    h = Number(m[1]); min = Number(m[2]);
+    if (m[3] === 'PM' && h !== 12) h += 12;
+    if (m[3] === 'AM' && h === 12) h = 0;
+  } else {
+    m = raw.match(/^(\d{1,2})\s*(AM|PM)$/);
+    if (!m) return null;
+    h = Number(m[1]); min = 0;
+    if (m[2] === 'PM' && h !== 12) h += 12;
+    if (m[2] === 'AM' && h === 12) h = 0;
+  }
+  if (h == null || h < 0 || h > 23 || min < 0 || min > 59) return null;
+
+  const guess = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(guess);
+  const get = (t) => Number(parts.find((p) => p.type === t).value);
+  const shownMinutesTotal = (get('hour') % 24) * 60 + get('minute');
+  const targetMinutesTotal = h * 60 + min;
+  const diffMinutes = targetMinutesTotal - shownMinutesTotal;
+  return new Date(guess.getTime() + diffMinutes * 60000).toISOString();
+}
 
 router.post('/lottery/:id/result', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Lottery not found');
 
-  const { date, resultText } = req.body;
+  const { date, resultText, publishMode } = req.body;
   const dateStr=String(date||''); const parsedDate=new Date(`${dateStr}T00:00:00Z`); const dateOk=/^\d{4}-\d{2}-\d{2}$/.test(dateStr)&&!Number.isNaN(parsedDate.getTime())&&parsedDate.toISOString().slice(0,10)===dateStr;
   if (!dateOk || !resultText || !resultText.trim()) {
     return res.render('admin-update-result', {
@@ -500,74 +556,48 @@ router.post('/lottery/:id/result', (req, res) => {
     });
   }
 
+  // Optional scheduling: during the lottery's closing window, an admin can
+  // enter today's result early and hold it back until the official draw
+  // time instead of publishing it the instant it's saved.
+  let scheduledFor = null;
+  let published = true;
+  if (publishMode === 'schedule' && date === todayStr) {
+    const iso = computeScheduledIso(date, lottery.drawTime, tz);
+    if (iso && new Date(iso).getTime() > Date.now()) {
+      scheduledFor = iso;
+      published = false;
+    }
+  }
+
   // If an active result for this date already exists, update it instead of duplicating
   const existing = db.get('results').find((r) => r.lotteryId === lottery.id && r.date === date && !r.deletedAt).value();
+  let savedResult;
   if (existing) {
     db.get('results')
       .find({ id: existing.id })
-      .assign({ resultText: resultText.trim(), updatedAt: new Date().toISOString() })
+      .assign({ resultText: resultText.trim(), updatedAt: new Date().toISOString(), scheduledFor, published })
       .write();
+    savedResult = { ...existing, resultText: resultText.trim(), date, scheduledFor, published };
   } else {
-    db.get('results')
-      .push({
-        id: makeId(),
-        lotteryId: lottery.id,
-        date,
-        resultText: resultText.trim(),
-        updatedAt: new Date().toISOString(),
-      })
-      .write();
+    savedResult = {
+      id: makeId(),
+      lotteryId: lottery.id,
+      date,
+      resultText: resultText.trim(),
+      updatedAt: new Date().toISOString(),
+      scheduledFor,
+      published,
+    };
+    db.get('results').push(savedResult).write();
   }
 
+  // Notify followers immediately only if this result is actually public now.
+  // A scheduled result gets its notifications later, at publish time,
+  // via the same helper (see db.publishDueScheduledResults in server.js).
+  if (published) db.notifyResultWatchers(lottery, savedResult);
 
-  // Create result notifications for users following a matching number.
-  const publishedNumbers = (resultText.match(/\d{1,2}/g) || []).map(n => n.padStart(2, '0'));
-  const matchingWatches = (db.get('watchedNumbers').value() || []).filter(w =>
-    w.lotteryId === lottery.id && publishedNumbers.includes(w.number)
-  );
-  matchingWatches.forEach(w => {
-    const user = db.get('users').find({ id: w.userId }).value();
-    if (!user || user.notificationsEnabled === false) return;
-    const already = db.get('notifications').find({
-      userId: w.userId,
-      lotteryId: lottery.id,
-      resultDate: date,
-      number: w.number,
-    }).value();
-    if (!already) {
-      db.get('notifications').push({
-        id: makeId(),
-        userId: w.userId,
-        lotteryId: lottery.id,
-        resultDate: date,
-        number: w.number,
-        title: 'Result notification',
-        message: `${lottery.name}: published result for ${date} contains your followed number ${w.number}.`,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-        type: 'result',
-      }).write();
-      // If optional Web Push support is configured, send a notification even
-      // when the user is not currently looking at the website.
-      try {
-        const webpush = require('web-push');
-        const publicKey = process.env.VAPID_PUBLIC_KEY;
-        const privateKey = process.env.VAPID_PRIVATE_KEY;
-        const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
-        if (publicKey && privateKey && user.pushSubscription) {
-          webpush.setVapidDetails(subject, publicKey, privateKey);
-          webpush.sendNotification(user.pushSubscription, JSON.stringify({
-            title: 'Result notification',
-            body: `${lottery.name}: your followed number ${w.number} appeared in the result for ${date}.`,
-            url: '/account',
-          })).catch(() => {});
-        }
-      } catch (e) { /* optional dependency/configuration */ }
-    }
-  });
-
-  logAction(req, 'Result saved', `${lottery.name} — ${date}: ${resultText.trim()}`);
-  redirectWithFlash(res, `/admin/lottery/${lottery.id}/result`, 'Result saved');
+  logAction(req, 'Result saved', `${lottery.name} — ${date}: ${resultText.trim()}${scheduledFor ? ` (scheduled for ${scheduledFor})` : ''}`);
+  redirectWithFlash(res, `/admin/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
 });
 
 // Soft-delete: mark as deleted but keep it in the trash so it can be undone

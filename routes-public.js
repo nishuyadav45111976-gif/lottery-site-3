@@ -4,9 +4,10 @@ const db = require('./db');
 const { formatTimestamp } = require('./utils');
 
 // Results the public site should ever show — excludes soft-deleted ones
-// still sitting in the admin's trash.
+// still sitting in the admin's trash, and excludes results an admin has
+// scheduled ahead of time but that haven't reached their draw time yet.
 function activeResults() {
-  return (db.get('results').value() || []).filter((r) => !r.deletedAt);
+  return (db.get('results').value() || []).filter((r) => !r.deletedAt && r.published !== false);
 }
 
 function parseDrawMinutes(drawTime) {
@@ -128,7 +129,7 @@ router.get('/', async (req, res) => {
   const lotteriesWithResults = lotteries.map((lottery) => {
     const results = db
       .get('results')
-      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt)
+      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
       .sortBy('date')
       .reverse()
       .value();
@@ -178,7 +179,7 @@ router.get('/lottery/:slug', async (req, res) => {
 
   const results = db
     .get('results')
-    .filter((r) => r.lotteryId === lottery.id && !r.deletedAt)
+    .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
     .sortBy('date')
     .reverse()
     .value();
@@ -221,6 +222,58 @@ router.get('/history', async (req, res) => {
   });
 });
 
+router.get('/disclaimer', async (req, res) => {
+  await trackVisit(req);
+  res.render('legal-page', {
+    title: 'Disclaimer',
+    metaDescription: `Disclaimer for ${res.locals.siteName}.`,
+    content: db.get('settings.disclaimerText').value() || '',
+  });
+});
+
+router.get('/privacy', async (req, res) => {
+  await trackVisit(req);
+  res.render('legal-page', {
+    title: 'Privacy Policy & Terms',
+    metaDescription: `Privacy policy and terms of use for ${res.locals.siteName}.`,
+    content: db.get('settings.privacyText').value() || '',
+  });
+});
+
+router.get('/about', async (req, res) => {
+  await trackVisit(req);
+  res.render('legal-page', {
+    title: 'About / Contact',
+    metaDescription: `About and contact information for ${res.locals.siteName}.`,
+    content: db.get('settings.aboutText').value() || '',
+  });
+});
+
+// Historical "which numbers come up most often" table for one lottery
+router.get('/lottery/:slug/frequency', async (req, res) => {
+  const lottery = db.get('lotteries').find({ slug: req.params.slug }).value();
+  if (!lottery) return res.status(404).render('404');
+  await trackVisit(req);
+
+  const results = db
+    .get('results')
+    .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
+    .value();
+
+  const counts = {};
+  results.forEach((r) => {
+    (r.resultText.match(/\d{1,2}/g) || []).forEach((n) => {
+      const key = n.padStart(2, '0');
+      counts[key] = (counts[key] || 0) + 1;
+    });
+  });
+  const frequency = Object.entries(counts)
+    .map(([number, count]) => ({ number, count }))
+    .sort((a, b) => b.count - a.count || a.number.localeCompare(b.number));
+
+  res.render('lottery-frequency', { lottery, frequency });
+});
+
 // robots.txt — allow everything except the admin panel, point crawlers at the sitemap
 router.get('/robots.txt', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
@@ -232,7 +285,15 @@ router.get('/robots.txt', (req, res) => {
 router.get('/sitemap.xml', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
   const lotteries = db.get('lotteries').value() || [];
-  const urls = [`${base}/`, `${base}/history`, ...lotteries.map((l) => `${base}/lottery/${l.slug}`)];
+  const urls = [
+    `${base}/`,
+    `${base}/history`,
+    `${base}/disclaimer`,
+    `${base}/privacy`,
+    `${base}/about`,
+    ...lotteries.map((l) => `${base}/lottery/${l.slug}`),
+    ...lotteries.map((l) => `${base}/lottery/${l.slug}/frequency`),
+  ];
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

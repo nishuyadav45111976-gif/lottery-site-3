@@ -138,4 +138,17 @@
 </script>
 <% } %>
 
+<script>
+  (function () {
+    var wasHidden = false;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (document.visibilityState === 'visible' && wasHidden) {
+        location.reload();
+      }
+    });
+  })();
+</script>
+
 <%- include('partial-footer') %>

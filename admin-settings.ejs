@@ -2,7 +2,7 @@
 
 <a class="back-link" href="/admin">&larr; Dashboard</a>
 <h1>Website Settings</h1>
-<p class="subtitle">Change the name shown at the top of your website.</p>
+<p class="subtitle">Contact details shown on the site. Looking for the website name, Disclaimer, Privacy Policy, or About page? Those moved to <a href="/admin/pages">Edit Pages</a>.</p>
 
 <% if (typeof flash !== 'undefined' && flash) { %>
   <div class="flash-msg">✓ <%= flash %></div>
@@ -13,9 +13,6 @@
 <% } %>
 
 <form class="form-box" method="POST" action="/admin/settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-  <label for="siteName">Website Name</label>
-  <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
-
   <label for="contactLabel">Contact Bar Label</label>
   <input type="text" id="contactLabel" name="contactLabel" value="<%= currentContactLabel %>" placeholder="Help & Queries" />
 
