@@ -312,22 +312,27 @@ function getLotteriesWithLatest() {
       { tickets: 0, amount: 0 }
     );
 
-    // Per-number totals, so the dashboard can call out the number
-    // carrying the most money and the one carrying the least — only
-    // among numbers that have actually received a purchase.
+    // Per-number totals across the full 00-99 range, so the dashboard can
+    // call out the number carrying the most money and the one carrying the
+    // least. Computing over every number (not just purchased ones) means
+    // "lowest" correctly lands on an untouched (zero) number instead of
+    // collapsing onto the same number as "highest" when only one number
+    // has been bought so far.
     const byNumber = {};
+    allNumbers().forEach((n) => { byNumber[n] = { amount: 0, tickets: 0 }; });
     lotteryPurchases.forEach((p) => {
       const n = String(p.number).padStart(2, '0');
       if (!byNumber[n]) byNumber[n] = { amount: 0, tickets: 0 };
       byNumber[n].amount += Number(p.amount) || 0;
       byNumber[n].tickets += Number(p.tickets) || 0;
     });
-    const purchasedNumbers = Object.keys(byNumber);
+    const allNums = Object.keys(byNumber);
+    const hasAnyPurchase = allNums.some((n) => byNumber[n].amount > 0 || byNumber[n].tickets > 0);
     let highestNumber = null;
     let lowestNumber = null;
-    if (purchasedNumbers.length) {
-      highestNumber = purchasedNumbers.reduce((best, n) => (byNumber[n].amount > byNumber[best].amount ? n : best), purchasedNumbers[0]);
-      lowestNumber = purchasedNumbers.reduce((worst, n) => (byNumber[n].amount < byNumber[worst].amount ? n : worst), purchasedNumbers[0]);
+    if (hasAnyPurchase) {
+      highestNumber = allNums.reduce((best, n) => (byNumber[n].amount > byNumber[best].amount ? n : best), allNums[0]);
+      lowestNumber = allNums.reduce((worst, n) => (byNumber[n].amount < byNumber[worst].amount ? n : worst), allNums[0]);
     }
 
     return { ...lottery, latestResult: results[0] || null, purchaseTotals, entryStatus: lotteryEntryStatus(lottery), highestNumber, lowestNumber, byNumber };
