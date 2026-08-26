@@ -958,7 +958,7 @@ body.admin-theme .card-stat-value { font-size: 14px; font-weight: 850; color: va
 body.admin-theme .card-stat-label { font-size: 10px; color: var(--text-dim); font-weight: 650; margin-top: 3px; }
 body.admin-theme .card-highlow { display: flex; gap: 8px; margin-top: 12px; }
 body.admin-theme .card-highlow-box {
-  flex: 1; text-align: center; border-radius: 14px; padding: 10px 6px; font-size: 17px; font-weight: 850;
+  flex: 0 0 auto; min-width: 68px; text-align: center; border-radius: 14px; padding: 10px 6px; font-size: 17px; font-weight: 850;
   box-shadow: 4px 4px 8px var(--admin-sh), -4px -4px 8px var(--admin-hi);
 }
 body.admin-theme .card-highlow-box.high { color: #7A2E20; background: #F1DCD6; }
