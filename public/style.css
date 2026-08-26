@@ -948,9 +948,10 @@ body.admin-theme .live-dot { width: 7px; height: 7px; border-radius: 50%; backgr
 body.admin-theme .live-dot.off { background: var(--text-dim); box-shadow: 0 0 0 3px var(--primary-tint); }
 body.admin-theme .more-btn {
   width: 37px; height: 37px; border: 0; border-radius: 13px;
-  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: 0 0 auto;
   background: var(--bg); box-shadow: inset 3px 3px 6px var(--admin-sh), inset -3px -3px 6px var(--admin-hi);
 }
+body.admin-theme .more-dot { width: 5px; height: 5px; border-radius: 50%; background: #40281D; display: block; flex: 0 0 auto; }
 body.admin-theme .divider { height: 1px; background: var(--border); margin: 15px 0; }
 body.admin-theme .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 body.admin-theme .card-stat-value { font-size: 14px; font-weight: 850; color: var(--primary-dark); }
