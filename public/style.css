@@ -956,11 +956,15 @@ body.admin-theme .card-stats { display: grid; grid-template-columns: repeat(3, 1
 body.admin-theme .card-stat-value { font-size: 14px; font-weight: 850; color: var(--primary-dark); }
 body.admin-theme .card-stat-label { font-size: 10px; color: var(--text-dim); font-weight: 650; margin-top: 3px; }
 body.admin-theme .card-highlow { display: flex; gap: 8px; margin-top: 12px; }
-body.admin-theme .card-highlow-item { flex: 1; text-align: center; border-radius: 14px; padding: 9px 6px; background: var(--bg); box-shadow: inset 3px 3px 6px var(--admin-sh), inset -3px -3px 6px var(--admin-hi); }
-body.admin-theme .card-highlow-value { font-size: 15px; font-weight: 850; }
-body.admin-theme .card-highlow-item.high .card-highlow-value { color: var(--success); }
-body.admin-theme .card-highlow-item.low .card-highlow-value { color: var(--danger); }
-body.admin-theme .card-highlow-label { font-size: 10px; color: var(--text-dim); font-weight: 650; margin-top: 3px; }
+body.admin-theme .card-highlow-item {
+  flex: 1; display: flex; align-items: center; gap: 9px; border-radius: 14px; padding: 8px 10px;
+  background: var(--bg); box-shadow: 4px 4px 8px var(--admin-sh), -4px -4px 8px var(--admin-hi);
+}
+body.admin-theme .card-highlow-icon { width: 32px; height: 32px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+body.admin-theme .card-highlow-item.high .card-highlow-icon { color: var(--danger); background: #F1DCD6; }
+body.admin-theme .card-highlow-item.low .card-highlow-icon { color: var(--success); background: #DCE7DC; }
+body.admin-theme .card-highlow-value { font-size: 15px; font-weight: 850; color: var(--text); }
+body.admin-theme .card-highlow-label { font-size: 10px; color: var(--text-dim); font-weight: 650; margin-top: 2px; }
 body.admin-theme .tags { display: flex; gap: 7px; margin-top: 13px; flex-wrap: wrap; }
 body.admin-theme .tag { font-size: 10px; font-weight: 800; padding: 6px 10px; border-radius: 10px; background: var(--primary-tint); color: var(--primary-dark); }
 body.admin-theme .tag-main { box-shadow: 3px 3px 7px var(--admin-sh); background: linear-gradient(150deg, var(--primary), var(--primary-dark)); color: #F3EADF; }
