@@ -306,13 +306,31 @@ function getLotteriesWithLatest() {
       .sortBy('date')
       .reverse()
       .value();
-    const purchaseTotals = allPurchases
-      .filter((p) => p.lotteryId === lottery.id)
-      .reduce(
-        (acc, p) => ({ tickets: acc.tickets + p.tickets, amount: acc.amount + p.amount }),
-        { tickets: 0, amount: 0 }
-      );
-    return { ...lottery, latestResult: results[0] || null, purchaseTotals, entryStatus: lotteryEntryStatus(lottery) };
+    const lotteryPurchases = db.purchasesForCurrentRound(allPurchases.filter((p) => p.lotteryId === lottery.id), lottery);
+    const purchaseTotals = lotteryPurchases.reduce(
+      (acc, p) => ({ tickets: acc.tickets + p.tickets, amount: acc.amount + p.amount }),
+      { tickets: 0, amount: 0 }
+    );
+
+    // Per-number totals, so the dashboard can call out the number
+    // carrying the most money and the one carrying the least — only
+    // among numbers that have actually received a purchase.
+    const byNumber = {};
+    lotteryPurchases.forEach((p) => {
+      const n = String(p.number).padStart(2, '0');
+      if (!byNumber[n]) byNumber[n] = { amount: 0, tickets: 0 };
+      byNumber[n].amount += Number(p.amount) || 0;
+      byNumber[n].tickets += Number(p.tickets) || 0;
+    });
+    const purchasedNumbers = Object.keys(byNumber);
+    let highestNumber = null;
+    let lowestNumber = null;
+    if (purchasedNumbers.length) {
+      highestNumber = purchasedNumbers.reduce((best, n) => (byNumber[n].amount > byNumber[best].amount ? n : best), purchasedNumbers[0]);
+      lowestNumber = purchasedNumbers.reduce((worst, n) => (byNumber[n].amount < byNumber[worst].amount ? n : worst), purchasedNumbers[0]);
+    }
+
+    return { ...lottery, latestResult: results[0] || null, purchaseTotals, entryStatus: lotteryEntryStatus(lottery), highestNumber, lowestNumber, byNumber };
   });
 }
 
@@ -658,7 +676,10 @@ router.post('/lottery/:id/result', (req, res) => {
   // Notify followers immediately only if this result is actually public now.
   // A scheduled result gets its notifications later, at publish time,
   // via the same helper (see db.publishDueScheduledResults in server.js).
-  if (published) db.notifyResultWatchers(lottery, savedResult);
+  if (published) {
+    db.notifyResultWatchers(lottery, savedResult);
+    db.startNewRound(lottery.id);
+  }
 
   logAction(req, 'Result saved', `${lottery.name} — ${date}: ${resultText.trim()}${scheduledFor ? ` (scheduled for ${scheduledFor})` : ''}`);
   redirectWithFlash(res, `/admin/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
@@ -726,7 +747,7 @@ router.get('/lottery/:id/purchases', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Lottery not found');
 
-  const entries = db.get('purchases').filter({ lotteryId: lottery.id }).value();
+  const entries = db.purchasesForCurrentRound(db.get('purchases').filter({ lotteryId: lottery.id }).value(), lottery);
   const follows = db.get('watchedNumbers').filter({ lotteryId: lottery.id }).value();
   const totals = {};
   allNumbers().forEach((n) => { totals[n] = { tickets: 0, amount: 0, followers: 0 }; });

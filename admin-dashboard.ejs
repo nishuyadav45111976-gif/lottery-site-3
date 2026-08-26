@@ -103,7 +103,7 @@ function sparklinePoints(series, w, h) {
             </div>
           </div>
           <button class="more-btn" onclick="openAdminSheet('lottery-<%= lottery.id %>')" aria-label="Lottery actions">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-dark)" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="5" r="1.3" fill="var(--primary-dark)"/><circle cx="12" cy="12" r="1.3" fill="var(--primary-dark)"/><circle cx="12" cy="19" r="1.3" fill="var(--primary-dark)"/></svg>
           </button>
         </div>
         <div class="divider"></div>
@@ -112,6 +112,18 @@ function sparklinePoints(series, w, h) {
           <div><div class="card-stat-value"><%= lottery.purchaseTotals.tickets %></div><div class="card-stat-label">Tickets sold</div></div>
           <div><div class="card-stat-value"><%= lottery.purchaseTotals.amount %></div><div class="card-stat-label">Pool Total</div></div>
         </div>
+        <% if (lottery.highestNumber) { %>
+        <div class="card-highlow">
+          <div class="card-highlow-item high">
+            <div class="card-highlow-value"><%= lottery.highestNumber %></div>
+            <div class="card-highlow-label">Highest amount</div>
+          </div>
+          <div class="card-highlow-item low">
+            <div class="card-highlow-value"><%= lottery.lowestNumber %></div>
+            <div class="card-highlow-label">Lowest amount</div>
+          </div>
+        </div>
+        <% } %>
         <div class="tags">
           <% if (lottery.isMain) { %><span class="tag tag-main">★ Main lottery</span><% } %>
           <span class="tag <%= isOpen ? 'tag-success' : 'tag-soft' %>"><%= isOpen ? '● Live' : 'Closed' %></span>

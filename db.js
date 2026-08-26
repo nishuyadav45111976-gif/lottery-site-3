@@ -446,9 +446,26 @@ async function publishDueScheduledResults() {
   for (const result of due) {
     dbGet('results').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
     const lottery = dbGet('lotteries').find({ id: result.lotteryId }).value();
-    if (lottery) notifyResultWatchers(lottery, result);
+    if (lottery) { notifyResultWatchers(lottery, result); startNewRound(result.lotteryId); }
   }
   if (due.length) await flushState();
+}
+
+// A published result closes out that lottery's current betting round. Ticket
+// purchases and pool totals shown for the lottery (dashboard card, purchase
+// grid, public numbers view) reset to zero from this moment on, while every
+// purchase ever made is still counted in the all-time Reports/Overview totals
+// — nothing is deleted, only the "since when" cutoff moves forward.
+function startNewRound(lotteryId) {
+  dbGet('lotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: new Date().toISOString() }).write();
+}
+
+// Filters a purchases array down to only the current round for a lottery.
+// If the lottery has never had a result published, there is no cutoff yet,
+// so every purchase on record still counts as "current".
+function purchasesForCurrentRound(allPurchases, lottery) {
+  if (!lottery || !lottery.currentRoundStartAt) return allPurchases;
+  return allPurchases.filter((p) => p.createdAt && p.createdAt >= lottery.currentRoundStartAt);
 }
 
 async function healthCheck() {
@@ -466,7 +483,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, startNewRound, purchasesForCurrentRound };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');
