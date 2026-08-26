@@ -1,4 +1,4 @@
-<%- include('partial-header', { title: lottery.name + ' — No. ' + number }) %>
+<%- include('partial-header', { title: lottery.name + ' — No. ' + number , isAdminPage: true }) %>
 
 <a class="back-link" href="/admin/lottery/<%= lottery.id %>/purchases">&larr; All numbers</a>
 <h1><%= lottery.name %> &mdash; No. <%= number %></h1>

@@ -1,7 +1,7 @@
 <%- include('partial-header', { title: 'My Tickets' }) %>
 <div class="container">
   <div class="page-back"><a href="/account">← Back to Dashboard</a></div>
-  <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %><div class="top-actions"><div><h1 style="margin:0;">My Tickets</h1><p class="subtitle">Only ticket records belonging to your account are shown here.</p></div><a class="btn secondary" href="/account/lotteries">Choose Lottery</a></div>
+  <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %><div class="top-actions"><div><h1 style="margin:0;">My Tickets</h1><p class="subtitle">Only ticket records belonging to your account are shown here.</p></div><div style="display:flex; gap:8px;"><a class="btn secondary" href="/account/tickets/export.csv">Export CSV</a><a class="btn secondary" href="/account/lotteries">Choose Lottery</a></div></div>
   <div class="user-detail-summary">
     <div><strong><%= totalTickets %></strong><span>Total tickets</span></div>
     <div><strong><%= totalAmount %></strong><span>Total amount</span></div>

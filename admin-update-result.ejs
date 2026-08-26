@@ -1,4 +1,4 @@
-<%- include('partial-header', { title: 'Update Result - ' + lottery.name }) %>
+<%- include('partial-header', { title: 'Update Result - ' + lottery.name , isAdminPage: true }) %>
 
 <a class="back-link" href="/admin">&larr; Dashboard</a>
 <h1><%= lottery.name %></h1>
@@ -34,6 +34,7 @@
 </form>
 
 <h2 style="margin-top:32px;">Result History</h2>
+<a class="btn secondary" style="margin-bottom:12px;" href="/admin/lottery/<%= lottery.id %>/results/export.csv">Export Results as CSV</a>
 <% if (results.length === 0) { %>
   <div class="empty-state">No results posted yet.</div>
 <% } else { %>
@@ -46,7 +47,7 @@
           <td class="result-cell">
             <%= r.resultText %>
             <% if (r.published === false) { %>
-              <div style="font-size:0.78rem; color:#b8860b; margin-top:2px;">⏳ Scheduled — not public yet, goes live automatically at draw time</div>
+              <div style="font-size:0.78rem; color:#b8860b; margin-top:2px;">⏳ Scheduled — not public yet, <%= r.scheduledCountdown || 'goes live automatically at draw time' %></div>
             <% } %>
           </td>
           <td>

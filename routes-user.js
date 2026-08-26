@@ -157,8 +157,22 @@ router.get('/account', requireUser, (req, res) => {
 });
 
 router.get('/account/lotteries', requireUser, (req, res) => {
-  const lotteries = (db.get('lotteries').value() || []).map(l => ({...l, ticketStatus: ticketEntryStatus(l)}));
+  const user = currentUser(req);
+  const favoriteIds = (user && user.favoriteLotteryIds) || [];
+  const lotteries = (db.get('lotteries').value() || [])
+    .map((l) => ({ ...l, ticketStatus: ticketEntryStatus(l), isFavorite: favoriteIds.includes(l.id) }))
+    .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
   res.render('user-lotteries', { lotteries, selectedId: req.query.selected || null });
+});
+
+router.post('/account/lotteries/:id/favorite', requireUser, (req, res) => {
+  const user = currentUser(req);
+  if (!user) return res.redirect('/login');
+  const current = user.favoriteLotteryIds || [];
+  const lotteryId = req.params.id;
+  const updated = current.includes(lotteryId) ? current.filter((id) => id !== lotteryId) : [...current, lotteryId];
+  db.get('users').find({ id: user.id }).assign({ favoriteLotteryIds: updated }).write();
+  res.redirect(req.get('referer') && req.get('referer').includes('/account/lotteries') ? '/account/lotteries' : '/account');
 });
 
 router.get('/account/numbers/:lotteryId', requireUser, (req, res) => {
@@ -211,6 +225,31 @@ router.get('/account/tickets', requireUser, (req, res) => {
   const totalTickets = entries.reduce((s,p) => s + (Number(p.tickets)||0), 0);
   const totalAmount = entries.reduce((s,p) => s + (Number(p.amount)||0), 0);
   res.render('user-tickets', { user, entries, totalTickets, totalAmount, notice: req.query.notice || null });
+});
+
+// CSV export of the signed-in user's own ticket history, for their personal records
+function csvField(value) {
+  const str = String(value === undefined || value === null ? '' : value);
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+router.get('/account/tickets/export.csv', requireUser, (req, res) => {
+  const user = currentUser(req);
+  if (!user) return res.redirect('/login');
+  const lotteries = db.get('lotteries').value() || [];
+  const purchases = db.get('purchases').filter({ userId: user.id }).value().slice().sort((a,b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+
+  const lines = ['Lottery,Number,Tickets,Amount,Logged At'];
+  purchases.forEach((p) => {
+    const lottery = lotteries.find((l) => l.id === p.lotteryId);
+    lines.push([csvField(lottery ? lottery.name : 'Unknown lottery'), csvField(p.number), csvField(p.tickets), csvField(p.amount), csvField(p.createdAt)].join(','));
+  });
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="my-tickets-${dateStamp}.csv"`);
+  res.send(lines.join('\n'));
 });
 
 router.get('/account/settings', requireUser, (req, res) => {

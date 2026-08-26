@@ -21,10 +21,10 @@
     <div class="featured-label">⭐ <%= t('featuredLabel') %></div>
     <div class="featured-name"><%= starredLottery.name %></div>
     <% if (starredLottery.drawTime) { %><div class="featured-time"><%= starredLottery.drawTime %></div><% } %>
-    <div class="featured-result">
-      <%= starredLottery.latestResult ? starredLottery.latestResult.resultText : 'XX' %>
+    <div class="featured-result <%= starredLottery.latestResult ? '' : 'pending' %>">
+      <%= starredLottery.latestResult ? starredLottery.latestResult.resultText : 'Result pending' %>
       <% if (starredLottery.latestResult) { %><span class="featured-date"><%= starredLottery.latestResult.date %></span><% } else if (starredLottery.upcoming) { %>
-        <span class="featured-date"><%= starredLottery.upcoming.pendingResult ? 'Result pending' : 'Today · ' + starredLottery.upcoming.remainingText + ' left' %></span>
+        <span class="featured-date"><%= starredLottery.upcoming.pendingResult ? '' : 'Today · ' + starredLottery.upcoming.remainingText + ' left' %></span>
       <% } %>
     </div>
   </div>
@@ -40,8 +40,7 @@
           <div class="result"><%= lottery.latestResult.resultText %></div>
           <div class="date">Latest · <%= lottery.latestResult.date %></div>
         <% } else if (lottery.upcoming) { %>
-          <div class="result">XX</div>
-          <div class="date"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
+          <div class="no-result"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
         <% } else { %>
           <div class="no-result"><%= t('noResultYet') %></div>
         <% } %>

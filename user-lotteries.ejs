@@ -10,11 +10,17 @@
       <strong>None</strong><span>Keep the number chart closed</span>
     </a>
     <% lotteries.forEach(lottery => { %>
-      <a class="lottery-choice-card <%= selectedId === lottery.id ? 'selected' : '' %>" href="/account/numbers/<%= lottery.id %>">
-        <strong><%= lottery.name %></strong>
-        <span><%= lottery.ticketStatus && lottery.ticketStatus.locked ? '🔒 Ticket entry closed' : '🟢 Ticket entry open' %></span>
-        <% if (lottery.drawTime) { %><span><%= lottery.drawTime %></span><% } else { %><span>Open number chart</span><% } %>
-      </a>
+      <div style="position:relative;">
+        <a class="lottery-choice-card <%= selectedId === lottery.id ? 'selected' : '' %>" href="/account/numbers/<%= lottery.id %>">
+          <strong><%= lottery.isFavorite ? '⭐ ' : '' %><%= lottery.name %></strong>
+          <span><%= lottery.ticketStatus && lottery.ticketStatus.locked ? '🔒 Ticket entry closed' : '🟢 Ticket entry open' %></span>
+          <% if (lottery.drawTime) { %><span><%= lottery.drawTime %></span><% } else { %><span>Open number chart</span><% } %>
+        </a>
+        <form method="POST" action="/account/lotteries/<%= lottery.id %>/favorite" style="position:absolute; top:8px; right:8px;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn secondary" style="padding:4px 8px; font-size:0.85rem;" title="<%= lottery.isFavorite ? 'Remove from favorites' : 'Add to favorites' %>"><%= lottery.isFavorite ? '★' : '☆' %></button>
+        </form>
+      </div>
     <% }) %>
   </div>
 

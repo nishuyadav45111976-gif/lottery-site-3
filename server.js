@@ -104,6 +104,10 @@ app.use((req, res, next) => {
   res.locals.contactDigits = digitsOnly(res.locals.contactNumber);
   res.locals.currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
   res.locals.noIndex = req.path.startsWith('/admin') || req.path.startsWith('/account') || req.path === '/login' || req.path === '/recover';
+  // Lets shared partials (header/footer) know we're inside the admin panel
+  // without every single admin view having to pass it in manually.
+  res.locals.isAdminPage = req.path.startsWith('/admin');
+  res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.userSession = !!(req.session && req.session.userId);
 
   // Language for the public site (English/Hindi). Persisted in the session so

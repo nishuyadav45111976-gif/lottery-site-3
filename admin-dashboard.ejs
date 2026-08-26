@@ -1,71 +1,172 @@
-<%- include('partial-header', { title: 'Admin Dashboard' }) %>
+<%- include('partial-header', { title: 'Admin Dashboard' , isAdminPage: true }) %>
 
-<div class="top-actions">
-  <h1 style="margin:0;">Admin Dashboard</h1>
-  <form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit">Log Out</button></form>
-</div>
-<p class="subtitle">Add new lotteries, update daily results, and manage your site.</p>
+<%
+// Turns a small series of numbers into an SVG polyline path for the
+// stat-strip sparklines. No dependency needed for 7 points.
+function sparklinePoints(series, w, h) {
+  if (!series || !series.length) return '';
+  var max = Math.max.apply(null, series.concat([1]));
+  var min = Math.min.apply(null, series.concat([0]));
+  var range = Math.max(max - min, 1);
+  var step = w / (series.length - 1 || 1);
+  return series.map(function (v, i) {
+    var x = Math.round(i * step);
+    var y = Math.round(h - ((v - min) / range) * (h - 4) - 2);
+    return x + ',' + y;
+  }).join(' ');
+}
+%>
 
+<div class="eyebrow"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %></div>
+<h1 class="greeting">Welcome back, Admin <span>👋</span></h1>
 
 <% if (typeof flash !== 'undefined' && flash) { %>
   <div class="flash-msg">✓ <%= flash %></div>
 <% } %>
-
-<% if (typeof quickSummary !== 'undefined') { %><div class="admin-quick-grid"><div class="stat-box"><div class="stat-value"><%= quickSummary.users %></div><div class="stat-label">Users</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.totalTickets %></div><div class="stat-label">Tickets</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.totalAmount %></div><div class="stat-label">Total Amount</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.lotteries %></div><div class="stat-label">Lotteries</div></div><div class="stat-box"><div class="stat-value"><%= quickSummary.database ? 'OK' : 'ERROR' %></div><div class="stat-label">Database</div></div></div><% } %>
-
 <% if (error) { %>
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<div style="display:flex; gap:10px; flex-wrap:wrap;">
-  <a class="btn" href="/admin/lottery/new">+ Add New Lottery</a>
-  <a class="btn secondary" href="/admin/hub">Settings</a>
-  <a class="btn secondary" href="/admin/users">User Accounts</a>
+<div class="search">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <input id="lotterySearch" type="text" placeholder="Search your lotteries…" oninput="filterLotteries()">
+  <button class="search-clear" id="searchClearBtn" onclick="document.getElementById('lotterySearch').value='';filterLotteries();" aria-label="Clear search">×</button>
 </div>
 
-<% if (lotteries.length === 0) { %>
-  <div class="empty-state">No lotteries yet. Add your first one above.</div>
-<% } else { %>
-  <% lotteries.forEach(function(lottery) { %>
-    <div class="admin-row <%= lottery.starred ? 'starred-row' : '' %>">
-      <div class="left">
-        <a href="/admin/lottery/<%= lottery.id %>/result">
-          <%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %>
-        </a>
-        <div class="meta"><strong>Draw: <%= lottery.drawTime || '—' %></strong> · <span class="lottery-status"><%= lottery.entryStatus && lottery.entryStatus.locked ? '🔒 CLOSED' : '🟢 OPEN' %></span><% if (lottery.entryStatus && lottery.entryStatus.cutoff !== '—') { %> · closes <%= lottery.entryStatus.cutoff %><% } %></div>
-        <div class="meta">
-          <% if (lottery.latestResult) { %>
-            Latest: <%= lottery.latestResult.resultText %> (<%= lottery.latestResult.date %>)
-          <% } else { %>
-            No result posted yet
-          <% } %>
-        </div>
-        <% if (lottery.purchaseTotals && lottery.purchaseTotals.tickets > 0) { %>
-          <div class="meta purchase-summary">
-            🎟️ <%= lottery.purchaseTotals.tickets %> ticket<%= lottery.purchaseTotals.tickets === 1 ? '' : 's' %> sold<% if (lottery.purchaseTotals.amount > 0) { %> &middot; <%= lottery.purchaseTotals.amount %> total<% } %>
-          </div>
-        <% } %>
-      </div>
-      <div class="actions">
-        <form method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn star-btn <%= lottery.starred ? 'active' : '' %>" title="<%= lottery.starred ? 'Remove star' : 'Star this lottery' %>">
-            <%= lottery.starred ? '⭐' : '☆' %>
-          </button>
-        </form>
-        <form method="POST" action="/admin/lottery/<%= lottery.id %>/main"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn main-btn <%= lottery.isMain ? 'active' : '' %>" title="<%= lottery.isMain ? 'Remove from main grid' : 'Show in main homepage grid (max 4)' %>">
-            <%= lottery.isMain ? '✔ Main' : '+ Main' %>
-          </button>
-        </form>
-        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/result">Update Result</a>
-        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/purchases">Ticket Purchases</a>
-        <a class="btn secondary" href="/admin/lottery/<%= lottery.id %>/edit">Edit</a>
-        <form method="POST" action="/admin/lottery/<%= lottery.id %>/delete" onsubmit="return confirm('Delete this lottery and all its results? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn danger">Delete</button>
-        </form>
-      </div>
+<% if (typeof quickSummary !== 'undefined') { %>
+<section>
+  <div class="section-head"><h2>Overview</h2></div>
+  <div class="stat-strip">
+    <div class="stat">
+      <div class="stat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="stat-value"><%= quickSummary.users %></div><div class="stat-label">Users</div>
+      <% if (quickSummary.usersThisMonth > 0) { %><div class="stat-change">↑ +<%= quickSummary.usersThisMonth %> this month</div><% } %>
+      <% if (quickSummary.usersSpark) { %><svg class="sparkline" width="100%" height="26" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="<%= sparklinePoints(quickSummary.usersSpark, 100, 26) %>" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><% } %>
     </div>
-  <% }); %>
+    <div class="stat">
+      <div class="stat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg></div>
+      <div class="stat-value"><%= quickSummary.totalTickets %></div><div class="stat-label">Tickets</div>
+      <% if (quickSummary.ticketsToday > 0) { %><div class="stat-change">↑ +<%= quickSummary.ticketsToday %> today</div><% } %>
+      <% if (quickSummary.ticketsSpark) { %><svg class="sparkline" width="100%" height="26" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="<%= sparklinePoints(quickSummary.ticketsSpark, 100, 26) %>" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><% } %>
+    </div>
+    <div class="stat">
+      <div class="stat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <div class="stat-value"><%= quickSummary.totalAmount %></div><div class="stat-label">Total Amount</div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+      <div class="stat-value"><%= quickSummary.lotteries %></div><div class="stat-label">Lotteries</div>
+      <div class="stat-change" style="color:<%= quickSummary.database ? 'var(--success)' : 'var(--danger)' %>"><%= quickSummary.database ? '● Database OK' : '● Database error' %></div>
+    </div>
+  </div>
+</section>
 <% } %>
+
+<section>
+  <div class="section-head"><h2>Quick actions</h2></div>
+  <div class="quick-grid">
+    <a class="quick" href="/admin/lottery/new"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div><span>New Lottery</span></a>
+    <a class="quick" href="/admin/users"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/></svg></div><span>Add User</span></a>
+    <a class="quick" href="/admin/stats"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="4" y1="19" x2="4" y2="9"/><line x1="10" y1="19" x2="10" y2="5"/><line x1="16" y1="19" x2="16" y2="12"/><line x1="22" y1="19" x2="22" y2="3"/></svg></div><span>Reports</span></a>
+    <a class="quick" href="/admin/hub"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.84A1.7 1.7 0 0 0 8.4 10a1.7 1.7 0 0 0-.34-1.88L8 8.06l1.7-1.7.06.06A1.7 1.7 0 0 0 11.64 6.8 1.7 1.7 0 0 0 12.67 5.24V5h2.4v.24A1.7 1.7 0 0 0 16.1 6.8a1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.34 10a1.7 1.7 0 0 0 1.56 1.03H21v2.4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></div><span>Settings</span></a>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><h2>Your lotteries</h2></div>
+
+  <% if (lotteries.length > 3) { %>
+  <div class="filter-bar">
+    <button type="button" class="filter-chip active" data-filter="all" onclick="setLotteryFilter('all',this)">All</button>
+    <button type="button" class="filter-chip" data-filter="open" onclick="setLotteryFilter('open',this)">Active</button>
+    <button type="button" class="filter-chip" data-filter="closed" onclick="setLotteryFilter('closed',this)">Closed</button>
+    <button type="button" class="filter-chip" data-filter="main" onclick="setLotteryFilter('main',this)">Main</button>
+  </div>
+  <% } %>
+
+  <% if (lotteries.length === 0) { %>
+    <div class="empty-state">No lotteries yet. Tap the + button to add your first one.</div>
+  <% } else { %>
+    <% lotteries.forEach(function(lottery) { %>
+      <% var isOpen = !(lottery.entryStatus && lottery.entryStatus.locked); %>
+      <article class="admin-lottery-card <%= isOpen ? '' : 'closed' %>"
+        data-name="<%= lottery.name.toLowerCase() %>"
+        data-status="<%= isOpen ? 'open' : 'closed' %>"
+        data-main="<%= lottery.isMain ? 'true' : 'false' %>">
+        <div class="card-top">
+          <div class="lottery-avatar"><%= lottery.name.slice(0,2).toUpperCase() %></div>
+          <div class="card-title">
+            <p class="lottery-name"><%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %></p>
+            <div class="status">
+              <span class="live-dot <%= isOpen ? '' : 'off' %>"></span>
+              <%= isOpen ? 'Open' : 'Closed' %><% if (lottery.entryStatus && lottery.entryStatus.cutoff && lottery.entryStatus.cutoff !== '—') { %> · <%= isOpen ? 'closes' : 'opens' %> <%= lottery.entryStatus.cutoff %><% } %>
+            </div>
+          </div>
+          <button class="more-btn" onclick="openAdminSheet('lottery-<%= lottery.id %>')" aria-label="Lottery actions">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+          </button>
+        </div>
+        <div class="divider"></div>
+        <div class="card-stats">
+          <div><div class="card-stat-value"><%= lottery.latestResult ? lottery.latestResult.resultText : '—' %></div><div class="card-stat-label">Latest Result</div></div>
+          <div><div class="card-stat-value"><%= lottery.purchaseTotals.tickets %></div><div class="card-stat-label">Tickets sold</div></div>
+          <div><div class="card-stat-value"><%= lottery.purchaseTotals.amount %></div><div class="card-stat-label">Pool Total</div></div>
+        </div>
+        <div class="tags">
+          <% if (lottery.isMain) { %><span class="tag tag-main">★ Main lottery</span><% } %>
+          <span class="tag <%= isOpen ? 'tag-success' : 'tag-soft' %>"><%= isOpen ? '● Live' : 'Closed' %></span>
+        </div>
+      </article>
+
+      <template id="sheetTemplate-lottery-<%= lottery.id %>" data-title="<%= lottery.name %>">
+        <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/result"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Update Result</span></a>
+        <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/purchases"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg></span><span class="sheet-label">Ticket Purchases</span></a>
+        <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/edit"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Edit Lottery</span></a>
+        <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label"><%= lottery.starred ? 'Remove Star' : 'Star This Lottery' %></span></button></form>
+        <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/main"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="sheet-label"><%= lottery.isMain ? 'Remove from Main' : 'Set as Main' %></span></button></form>
+        <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/delete" onsubmit="return confirm('Delete this lottery and all its results? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item danger" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span><span class="sheet-label">Delete Lottery</span></button></form>
+      </template>
+    <% }); %>
+  <% } %>
+</section>
+
+<% if (typeof recentActivity !== 'undefined' && recentActivity.length > 0) { %>
+<section>
+  <div class="section-head"><h2>Recent activity</h2><a class="section-link" href="/admin/audit-log">View all</a></div>
+  <div class="activity-card">
+    <% recentActivity.forEach(function(entry) { %>
+      <div class="activity-row">
+        <div class="activity-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></div>
+        <div class="activity-copy">
+          <div class="activity-title"><%= entry.action %></div>
+          <div class="activity-time"><%= entry.detail ? entry.detail + ' · ' : '' %><%= new Date(entry.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) %></div>
+        </div>
+        <div class="activity-status">Done</div>
+      </div>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<script>
+  function filterLotteries() {
+    var q = document.getElementById('lotterySearch').value.trim().toLowerCase();
+    document.getElementById('searchClearBtn').classList.toggle('show', q.length > 0);
+    document.querySelectorAll('.admin-lottery-card').forEach(function (card) {
+      card.style.display = card.dataset.name.indexOf(q) !== -1 ? '' : 'none';
+    });
+  }
+  function setLotteryFilter(which, btn) {
+    document.querySelectorAll('.filter-chip').forEach(function (c) { c.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.admin-lottery-card').forEach(function (card) {
+      var show = which === 'all'
+        || (which === 'open' && card.dataset.status === 'open')
+        || (which === 'closed' && card.dataset.status === 'closed')
+        || (which === 'main' && card.dataset.main === 'true');
+      card.style.display = show ? '' : 'none';
+    });
+  }
+</script>
 
 <%- include('partial-footer') %>

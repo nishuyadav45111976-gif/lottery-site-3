@@ -14,6 +14,7 @@ const defaults = {
     disclaimerText: 'This site provides lottery results for informational purposes only. Results are compiled from publicly available sources. We do not sell tickets, accept payments, or facilitate any real-money gambling. Please verify results with the official source before acting on them.',
     privacyText: 'We collect only what is needed to run your account: a login session, and the ticket/number details you choose to save. Passwords are stored securely (hashed) and never in plain text. We do not sell your data to third parties. Use of this site is at your own discretion.',
     aboutText: 'This site publishes daily lottery results for informational purposes. For questions, corrections, or support, please use the contact details shown at the bottom of the site.',
+    faqText: 'When do results get posted?\nResults are posted as soon as possible after each draw closes, and sometimes automatically at the exact draw time if scheduled ahead of time by an admin.\n\nAre these official results?\nResults shown here are compiled for informational purposes. Please verify with the official source before acting on them.\n\nDo you sell tickets or accept payments?\nNo. This site only displays results — it does not sell tickets or handle real-money gambling.\n\nHow often is this page updated?\nThe page automatically refreshes with the latest result when you return to it after being away.',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };

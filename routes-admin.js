@@ -218,18 +218,20 @@ router.get('/pages', (req, res) => {
     disclaimerText: db.get('settings.disclaimerText').value() || '',
     privacyText: db.get('settings.privacyText').value() || '',
     aboutText: db.get('settings.aboutText').value() || '',
+    faqText: db.get('settings.faqText').value() || '',
     error: null,
   });
 });
 
 router.post('/pages', (req, res) => {
-  const { siteName, disclaimerText, privacyText, aboutText } = req.body;
+  const { siteName, disclaimerText, privacyText, aboutText, faqText } = req.body;
   if (!siteName || !siteName.trim()) {
     return res.render('admin-pages', {
       currentName: db.get('settings.siteName').value() || 'Haryana Results',
       disclaimerText: disclaimerText || '',
       privacyText: privacyText || '',
       aboutText: aboutText || '',
+      faqText: faqText || '',
       error: 'Please enter a website name.',
     });
   }
@@ -237,6 +239,7 @@ router.post('/pages', (req, res) => {
   db.set('settings.disclaimerText', (disclaimerText || '').trim()).write();
   db.set('settings.privacyText', (privacyText || '').trim()).write();
   db.set('settings.aboutText', (aboutText || '').trim()).write();
+  db.set('settings.faqText', (faqText || '').trim()).write();
   logAction(req, 'Pages updated', `Site name: ${siteName.trim()}`);
   redirectWithFlash(res, '/admin/pages', 'Pages saved');
 });
@@ -320,10 +323,52 @@ router.get('/hub', (req, res) => {
   res.render('admin-hub', {});
 });
 
+// Small helper: last-7-day daily counts, for the stat-strip sparklines.
+// Purely derived from real records' `createdAt` — no invented numbers.
+function last7DaySeries(records, valueFn) {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const totals = Object.fromEntries(days.map((d) => [d, 0]));
+  records.forEach((r) => {
+    if (!r.createdAt) return;
+    const day = r.createdAt.slice(0, 10);
+    if (day in totals) totals[day] += valueFn(r);
+  });
+  return days.map((d) => totals[d]);
+}
+
+function sparklinePoints(values, width, height) {
+  if (!values || values.length === 0) return '';
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const step = values.length > 1 ? width / (values.length - 1) : 0;
+  return values
+    .map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / range) * height).toFixed(1)}`)
+    .join(' ');
+}
+
 router.get('/', async (req, res) => {
   const dbHealth=await db.healthCheck();
   const lotteries=getLotteriesWithLatest(); const purchases=db.get('purchases').value()||[]; const users=db.get('users').value()||[]; const totalTickets=purchases.reduce((s,p)=>s+(Number(p.tickets)||0),0); const totalAmount=purchases.reduce((s,p)=>s+(Number(p.amount)||0),0);
-  res.render('admin-dashboard', { lotteries, error: null, quickSummary:{users:users.length,totalTickets,totalAmount,lotteries:lotteries.length,database:dbHealth.ok} });
+  const recentActivity=(db.get('auditLog').value()||[]).slice(-4).reverse();
+
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const monthStr = now.toISOString().slice(0, 7);
+  const ticketsToday = purchases.filter((p) => p.createdAt && p.createdAt.slice(0, 10) === todayStr).reduce((s, p) => s + (Number(p.tickets) || 0), 0);
+  const usersThisMonth = users.filter((u) => u.createdAt && u.createdAt.slice(0, 7) === monthStr).length;
+  const usersSpark = last7DaySeries(users, () => 1);
+  const ticketsSpark = last7DaySeries(purchases, (p) => Number(p.tickets) || 0);
+
+  res.render('admin-dashboard', {
+    lotteries, error: null, recentActivity, sparklinePoints,
+    quickSummary: { users: users.length, totalTickets, totalAmount, lotteries: lotteries.length, database: dbHealth.ok, ticketsToday, usersThisMonth, usersSpark, ticketsSpark },
+  });
 });
 
 // ---------- SITE-WIDE STATS ----------
@@ -496,9 +541,21 @@ router.get('/lottery/:id/result', (req, res) => {
   const nowParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const todayStr = `${nowParts.find((p) => p.type === 'year').value}-${nowParts.find((p) => p.type === 'month').value}-${nowParts.find((p) => p.type === 'day').value}`;
 
+  // Add a human-readable countdown to any result an admin scheduled ahead
+  // of time, so it's obvious exactly when it'll go public without needing
+  // to do any mental math on the raw draw time.
+  const results = activeResultsFor(lottery.id).map((r) => {
+    if (r.published === false && r.scheduledFor) {
+      const minutesUntil = Math.max(0, Math.round((new Date(r.scheduledFor).getTime() - Date.now()) / 60000));
+      const timeDisplay = new Intl.DateTimeFormat('en-IN', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(r.scheduledFor));
+      return { ...r, scheduledCountdown: `goes live at ${timeDisplay} (in ${minutesUntil} minute${minutesUntil === 1 ? '' : 's'})` };
+    }
+    return r;
+  });
+
   res.render('admin-update-result', {
     lottery,
-    results: activeResultsFor(lottery.id),
+    results,
     trashedResults: trashedResultsFor(lottery.id),
     error: null,
     todayStr,
@@ -647,6 +704,23 @@ function allNumbers() {
   for (let i = 0; i < 100; i++) nums.push(String(i).padStart(2, '0'));
   return nums;
 }
+
+// CSV export of the posted result history for a lottery (date + result), for the admin's own records
+router.get('/lottery/:id/results/export.csv', (req, res) => {
+  const lottery = db.get('lotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Lottery not found');
+
+  const results = activeResultsFor(lottery.id).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const lines = ['Date,Result'];
+  results.forEach((r) => {
+    lines.push([csvField(r.date), csvField(r.resultText)].join(','));
+  });
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${lottery.slug}-results-${dateStamp}.csv"`);
+  res.send(lines.join('\n'));
+});
 
 router.get('/lottery/:id/purchases', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();

@@ -1,4 +1,4 @@
-<%- include('partial-header', { title: 'Edit Pages' }) %>
+<%- include('partial-header', { title: 'Edit Pages' , isAdminPage: true }) %>
 
 <a class="back-link" href="/admin">&larr; Dashboard</a>
 <h1>Edit Pages</h1>
@@ -27,6 +27,10 @@
   <label for="aboutText" style="margin-top:20px;">About / Contact page content</label>
   <p class="subtitle" style="margin-top:-4px;">Shown at <code>/about</code>.</p>
   <textarea id="aboutText" name="aboutText" rows="6" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= aboutText %></textarea>
+
+  <label for="faqText" style="margin-top:20px;">FAQ page content</label>
+  <p class="subtitle" style="margin-top:-4px;">Shown at <code>/faq</code>. Write each question on its own line, followed by the answer on the next line, with a blank line between each Q&amp;A.</p>
+  <textarea id="faqText" name="faqText" rows="8" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= faqText %></textarea>
 
   <button type="submit" style="margin-top:18px;">Save Pages</button>
 </form>

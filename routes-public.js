@@ -249,6 +249,15 @@ router.get('/about', async (req, res) => {
   });
 });
 
+router.get('/faq', async (req, res) => {
+  await trackVisit(req);
+  res.render('legal-page', {
+    title: 'Frequently Asked Questions',
+    metaDescription: `Frequently asked questions about ${res.locals.siteName}.`,
+    content: db.get('settings.faqText').value() || '',
+  });
+});
+
 // Historical "which numbers come up most often" table for one lottery
 router.get('/lottery/:slug/frequency', async (req, res) => {
   const lottery = db.get('lotteries').find({ slug: req.params.slug }).value();
@@ -291,6 +300,7 @@ router.get('/sitemap.xml', (req, res) => {
     `${base}/disclaimer`,
     `${base}/privacy`,
     `${base}/about`,
+    `${base}/faq`,
     ...lotteries.map((l) => `${base}/lottery/${l.slug}`),
     ...lotteries.map((l) => `${base}/lottery/${l.slug}/frequency`),
   ];
