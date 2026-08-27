@@ -30,7 +30,12 @@ function parseDrawMinutes(drawTime) {
 }
 function lotteryEntryStatus(lottery) {
   const dm=parseDrawMinutes(lottery.drawTime); if(dm==null)return {locked:false,cutoff:'—'};
-  const tz=process.env.LOTTERY_TIMEZONE||'Asia/Kolkata'; const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const h=Number(parts.find(p=>p.type==='hour').value)%24,m=Number(parts.find(p=>p.type==='minute').value),now=h*60+m,cut=(dm-15+1440)%1440; const locked=dm>=15?(now>=cut&&now<=1439):(now>=cut||now<=dm); return {locked,cutoff:String(Math.floor(cut/60)).padStart(2,'0')+':'+String(cut%60).padStart(2,'0')};
+  const tz=process.env.LOTTERY_TIMEZONE||'Asia/Kolkata'; const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const h=Number(parts.find(p=>p.type==='hour').value)%24,m=Number(parts.find(p=>p.type==='minute').value),now=h*60+m,cut=(dm-15+1440)%1440;
+  // Locked only for the 15-minute window right before the draw — from
+  // `cut` up to (but not including) the draw time itself. Once the draw
+  // time passes, entry re-opens automatically for the next round; it does
+  // not stay closed for the rest of the day.
+  const locked=dm>=15?(now>=cut&&now<dm):(now>=cut||now<dm); return {locked,cutoff:String(Math.floor(cut/60)).padStart(2,'0')+':'+String(cut%60).padStart(2,'0')};
 }
 function normalizeDrawTime(drawTime) {
   if (!String(drawTime || '').trim()) return '';
@@ -299,6 +304,9 @@ router.post('/settings/password', (req, res) => {
 function getLotteriesWithLatest() {
   const lotteries = db.get('lotteries').value() || [];
   const allPurchases = db.get('purchases').value() || [];
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const todayParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const todayStr = `${todayParts.find(p => p.type === 'year').value}-${todayParts.find(p => p.type === 'month').value}-${todayParts.find(p => p.type === 'day').value}`;
   return lotteries.map((lottery) => {
     const results = db
       .get('results')
@@ -306,6 +314,8 @@ function getLotteriesWithLatest() {
       .sortBy('date')
       .reverse()
       .value();
+    const latestResult = results[0] || null;
+    const updatedToday = !!(latestResult && latestResult.date === todayStr && latestResult.published !== false);
     const lotteryPurchases = db.purchasesForCurrentRound(allPurchases.filter((p) => p.lotteryId === lottery.id), lottery);
     const purchaseTotals = lotteryPurchases.reduce(
       (acc, p) => ({ tickets: acc.tickets + p.tickets, amount: acc.amount + p.amount }),
@@ -335,7 +345,7 @@ function getLotteriesWithLatest() {
       lowestNumber = allNums.reduce((worst, n) => (byNumber[n].amount < byNumber[worst].amount ? n : worst), allNums[0]);
     }
 
-    return { ...lottery, latestResult: results[0] || null, purchaseTotals, entryStatus: lotteryEntryStatus(lottery), highestNumber, lowestNumber, byNumber };
+    return { ...lottery, latestResult, updatedToday, purchaseTotals, entryStatus: lotteryEntryStatus(lottery), highestNumber, lowestNumber, byNumber };
   });
 }
 
@@ -946,20 +956,24 @@ router.get('/users/existing', (req, res) => {
   const enrichedUsers = users.map((user) => {
     const sameNameUsers = users.filter(u => String(u.name || '').trim().toLowerCase() === String(user.name || '').trim().toLowerCase());
     const userPurchases = purchases.filter((p) => p.userId === user.id || (!p.userId && sameNameUsers.length === 1 && String(p.buyerName || '').trim().toLowerCase() === String(user.name || '').trim().toLowerCase()));
+    // Only this round's purchases count toward the summary cards shown in
+    // the list — same reset behavior as the dashboard and the user detail
+    // page. Full history is still available on the user's own detail page.
+    const userPurchasesCurrent = lotteries.reduce((list, lottery) => list.concat(db.purchasesForCurrentRound(userPurchases.filter((p) => p.lotteryId === lottery.id), lottery)), []);
     const purchasedByLottery = {};
-    userPurchases.forEach((p) => {
+    userPurchasesCurrent.forEach((p) => {
       if (!purchasedByLottery[p.lotteryId]) purchasedByLottery[p.lotteryId] = [];
       purchasedByLottery[p.lotteryId].push(p);
     });
-    const purchased = userPurchases.map((p) => {
+    const purchased = userPurchasesCurrent.map((p) => {
       const lottery = lotteries.find((l) => l.id === p.lotteryId);
       return { number: p.number, lotteryName: lottery ? lottery.name : 'Unknown lottery', tickets: Number(p.tickets) || 0, amount: Number(p.amount) || 0 };
     });
     return {
       ...user,
-      purchasedCount: new Set(userPurchases.map((p) => `${p.lotteryId}:${p.number}`)).size,
-      totalTickets: userPurchases.reduce((sum, p) => sum + (Number(p.tickets) || 0), 0),
-      totalAmount: userPurchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+      purchasedCount: new Set(userPurchasesCurrent.map((p) => `${p.lotteryId}:${p.number}`)).size,
+      totalTickets: userPurchasesCurrent.reduce((sum, p) => sum + (Number(p.tickets) || 0), 0),
+      totalAmount: userPurchasesCurrent.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
       purchased,
       purchasedByLottery,
     };
@@ -993,7 +1007,11 @@ router.post('/users/:id/toggle', (req, res) => {
   redirectWithFlash(res, '/admin/users/existing', 'User status updated');
 });
 
-// View one user's purchased lottery numbers and ticket totals.
+// View one user's purchased lottery numbers and ticket totals for the
+// current round of each lottery — resets alongside the dashboard and
+// purchase grid whenever a result is published. Full all-time history
+// (every purchase ever made, across every past round) is kept separately
+// so nothing is ever actually lost, just no longer shown as "current".
 router.get('/users/:id', (req, res) => {
   const user = db.get('users').find({ id: req.params.id }).value();
   if (!user) return res.status(404).send('User account not found');
@@ -1002,25 +1020,44 @@ router.get('/users/:id', (req, res) => {
   const purchases = db.get('purchases').value() || [];
   const users = db.get('users').value() || [];
   const sameNameUsers = users.filter(u => String(u.name || '').trim().toLowerCase() === String(user.name || '').trim().toLowerCase());
-    const userPurchases = purchases.filter((p) => p.userId === user.id || (!p.userId && sameNameUsers.length === 1 && String(p.buyerName || '').trim().toLowerCase() === String(user.name || '').trim().toLowerCase()));
+  const userPurchasesAllTime = purchases.filter((p) => p.userId === user.id || (!p.userId && sameNameUsers.length === 1 && String(p.buyerName || '').trim().toLowerCase() === String(user.name || '').trim().toLowerCase()));
 
+  let currentTickets = 0, currentAmount = 0;
+  const currentPurchasedKeys = new Set();
   const lotteryViews = lotteries.map((lottery) => {
+    const lotteryPurchasesAllTime = userPurchasesAllTime.filter((p) => p.lotteryId === lottery.id);
+    const lotteryPurchasesCurrent = db.purchasesForCurrentRound(lotteryPurchasesAllTime, lottery);
     const byNumber = {};
     allNumbers().forEach((n) => { byNumber[n] = { tickets: 0, amount: 0 }; });
-    userPurchases.filter((p) => p.lotteryId === lottery.id).forEach((p) => {
+    lotteryPurchasesCurrent.forEach((p) => {
       const n = String(p.number).padStart(2, '0');
       if (!byNumber[n]) byNumber[n] = { tickets: 0, amount: 0 };
       byNumber[n].tickets += Number(p.tickets) || 0;
       byNumber[n].amount += Number(p.amount) || 0;
+      currentTickets += Number(p.tickets) || 0;
+      currentAmount += Number(p.amount) || 0;
+      currentPurchasedKeys.add(`${lottery.id}:${n}`);
     });
     return { ...lottery, numbers: allNumbers(), byNumber };
   });
 
-  const totalTickets = userPurchases.reduce((sum, p) => sum + (Number(p.tickets) || 0), 0);
-  const totalAmount = userPurchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const purchasedCount = new Set(userPurchases.map((p) => `${p.lotteryId}:${p.number}`)).size;
+  const totalTickets = currentTickets;
+  const totalAmount = currentAmount;
+  const purchasedCount = currentPurchasedKeys.size;
 
-  res.render('admin-user-detail', { user, lotteryViews, totalTickets, totalAmount, purchasedCount });
+  // Full history: every purchase this account has ever made, most recent
+  // first, with the lottery name attached for display.
+  const history = userPurchasesAllTime
+    .slice()
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .map((p) => {
+      const lottery = lotteries.find((l) => l.id === p.lotteryId);
+      return { ...p, lotteryName: lottery ? lottery.name : 'Unknown lottery' };
+    });
+  const totalTicketsAllTime = userPurchasesAllTime.reduce((sum, p) => sum + (Number(p.tickets) || 0), 0);
+  const totalAmountAllTime = userPurchasesAllTime.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  res.render('admin-user-detail', { user, lotteryViews, totalTickets, totalAmount, purchasedCount, history, totalTicketsAllTime, totalAmountAllTime });
 });
 
 router.post('/users/:id/recovery-code', (req, res) => {

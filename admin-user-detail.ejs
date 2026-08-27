@@ -49,6 +49,28 @@
   <% }); %>
 <% } %>
 
+<% if (history && history.length) { %>
+  <div class="card">
+    <div class="section-head-row">
+      <div>
+        <h2 style="margin:0;">Full purchase history</h2>
+        <p class="subtitle" style="margin-bottom:0;">Every purchase this account has ever made (<%= totalTicketsAllTime %> tickets · <%= totalAmountAllTime %> all-time) — current-round totals above reset after each result.</p>
+      </div>
+      <button type="button" class="btn secondary toggle-numbers-btn" data-target="full-history">View history</button>
+    </div>
+    <div id="full-history" style="display:none; margin-top:12px;">
+      <% history.forEach(function(p) { %>
+        <div class="admin-user-number-box followed" style="width:100%; margin-bottom:8px;">
+          <span class="admin-user-number-label"><%= p.lotteryName %> · No.<%= p.number %></span>
+          <span class="admin-user-number-meta"><%= p.tickets %> tkt<%= p.tickets === 1 ? '' : 's' %></span>
+          <span class="admin-user-number-meta"><%= p.amount %></span>
+          <span class="admin-user-number-meta"><%= p.createdAt ? new Date(p.createdAt).toLocaleString() : '' %></span>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+
 <script>
   document.querySelectorAll('.toggle-numbers-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
