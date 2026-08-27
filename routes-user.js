@@ -183,7 +183,7 @@ router.get('/account/numbers/:lotteryId', requireUser, (req, res) => {
   // Ticket records entered from the user panel are stored in the same
   // purchases collection as admin records. Aggregate them per number so the
   // 00-99 grid immediately shows the totals, just like the admin grid.
-  const purchases = db.purchasesForCurrentRound(db.get('purchases').filter({ lotteryId: lottery.id, userId: user.id }).value(), lottery);
+  const purchases = db.get('purchases').filter({ lotteryId: lottery.id, userId: user.id }).value();
   const purchaseTotals = {};
   for (let i = 0; i < 100; i++) {
     const n = String(i).padStart(2, '0');

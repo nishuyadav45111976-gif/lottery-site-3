@@ -8,7 +8,7 @@ const { Pool } = require('pg');
 const { hashPassword } = require('./utils');
 
 const defaults = {
-  lotteries: [], results: [], purchases: [], users: [], watchedNumbers: [],
+  lotteries: [], results: [], purchases: [], purchaseHistory: [], users: [], watchedNumbers: [],
   notifications: [], settings: {
     siteName: 'Haryana Results',
     disclaimerText: 'This site provides lottery results for informational purposes only. Results are compiled from publicly available sources. We do not sell tickets, accept payments, or facilitate any real-money gambling. Please verify results with the official source before acting on them.',
@@ -446,26 +446,37 @@ async function publishDueScheduledResults() {
   for (const result of due) {
     dbGet('results').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
     const lottery = dbGet('lotteries').find({ id: result.lotteryId }).value();
-    if (lottery) { notifyResultWatchers(lottery, result); startNewRound(result.lotteryId); }
+    if (lottery) { notifyResultWatchers(lottery, result); await startNewRound(result.lotteryId); }
   }
   if (due.length) await flushState();
 }
 
-// A published result closes out that lottery's current betting round. Ticket
-// purchases and pool totals shown for the lottery (dashboard card, purchase
-// grid, public numbers view) reset to zero from this moment on, while every
-// purchase ever made is still counted in the all-time Reports/Overview totals
-// — nothing is deleted, only the "since when" cutoff moves forward.
-function startNewRound(lotteryId) {
-  dbGet('lotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: new Date().toISOString() }).write();
+// A published result closes out that lottery's current betting round.
+// Rather than just marking a "since when" cutoff and filtering by it on every
+// read (which turned out not to survive a free-tier Render restart
+// reliably), this physically moves every current purchase for the lottery
+// out of the live `purchases` list and into `purchaseHistory`. That makes
+// "current round" trivially just "whatever is still in `purchases`" — no
+// timestamp comparison required — while `purchaseHistory` keeps a full,
+// permanent record for the Reports/Overview all-time totals and each user's
+// full purchase history.
+async function startNewRound(lotteryId) {
+  const now = new Date().toISOString();
+  const toArchive = dbGet('purchases').filter({ lotteryId }).value() || [];
+  if (toArchive.length) {
+    dbGet('purchases').remove({ lotteryId });
+    const historyChain = dbGet('purchaseHistory');
+    toArchive.forEach((p) => historyChain.push({ ...p, roundEndedAt: now }));
+  }
+  dbGet('lotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: now });
+  await persistState(true);
 }
 
-// Filters a purchases array down to only the current round for a lottery.
-// If the lottery has never had a result published, there is no cutoff yet,
-// so every purchase on record still counts as "current".
-function purchasesForCurrentRound(allPurchases, lottery) {
-  if (!lottery || !lottery.currentRoundStartAt) return allPurchases;
-  return allPurchases.filter((p) => p.createdAt && p.createdAt >= lottery.currentRoundStartAt);
+// Every purchase ever made for a lottery/user — current round plus every
+// past round already archived by startNewRound. Used for all-time totals
+// (Reports/Overview) and full purchase history views.
+function allPurchasesEverMade() {
+  return (dbGet('purchases').value() || []).concat(dbGet('purchaseHistory').value() || []);
 }
 
 async function healthCheck() {
@@ -483,7 +494,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, startNewRound, purchasesForCurrentRound };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, startNewRound, allPurchasesEverMade };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');
