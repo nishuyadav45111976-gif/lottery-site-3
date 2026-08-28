@@ -70,13 +70,14 @@ function ticketEntryStatus(lottery) {
   const nowMinutes = now.hour * 60 + now.minute;
   const cutoff = (drawMinutes - 15 + 1440) % 1440;
 
-  // A lottery's draw is a daily occurrence. This handles the normal case and
-  // also correctly handles draws just after midnight (00:00-00:14).
+  // Locked only for the 15-minute window right before the draw, same as
+  // the admin dashboard's status check — reopens automatically once the
+  // draw time passes, rather than staying closed for the rest of the day.
   let locked;
   if (drawMinutes >= 15) {
-    locked = nowMinutes >= cutoff && nowMinutes <= 1439;
+    locked = nowMinutes >= cutoff && nowMinutes < drawMinutes;
   } else {
-    locked = nowMinutes >= cutoff || nowMinutes <= drawMinutes;
+    locked = nowMinutes >= cutoff || nowMinutes < drawMinutes;
   }
 
   const hh = Math.floor(cutoff / 60).toString().padStart(2, '0');
@@ -197,8 +198,10 @@ router.get('/account/numbers/:lotteryId', requireUser, (req, res) => {
   });
 
   const ticketStatus = ticketEntryStatus(lottery);
-  // Generate a separate idempotency key for each number form. Keep this out of
-  // the EJS template so the view does not depend on Node's `require()` scope.
+  // A single idempotency key covers the multi-select batch submit and the
+  // quick-entry box; each single-number panel gets its own key so opening
+  // several one after another can't collide.
+  const requestId = crypto.randomUUID();
   const requestIds = {};
   for (let i = 0; i < 100; i++) {
     requestIds[String(i).padStart(2, '0')] = crypto.randomUUID();
@@ -208,6 +211,7 @@ router.get('/account/numbers/:lotteryId', requireUser, (req, res) => {
     lottery,
     purchaseTotals,
     ticketStatus,
+    requestId,
     requestIds,
     notice: req.query.notice || null,
   });
@@ -344,6 +348,54 @@ router.post('/notifications/unsubscribe', requireUser, (req, res) => {
 
 // User ticket entry for lottery numbers 00-99.
 // The user's account name is stored as buyerName automatically; the form only asks for tickets and amount.
+// Multi-select ticket entry: pick several numbers at once and log one
+// ticket (at the given amount) against each of them in a single submit —
+// replaces having to open each number separately and type a ticket count.
+router.post('/lottery/:id/purchases-multi', requireUser, (req, res) => {
+  const user = currentUser(req);
+  const lottery = db.get('lotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Lottery not found');
+
+  const ticketStatus = ticketEntryStatus(lottery);
+  if (ticketStatus.locked) return res.status(403).send(ticketStatus.message);
+
+  const requestId = String(req.body.requestId || '').trim();
+  if (!requestId || requestId.length > 100) return res.status(400).send('Invalid submission. Please refresh and try again.');
+  const duplicate = db.get('purchases').find({ userId: user.id, batchId: requestId }).value();
+  if (duplicate) return res.redirect('/account/numbers/' + encodeURIComponent(lottery.id) + '?notice=' + encodeURIComponent('These tickets were already saved.'));
+
+  let numbers = req.body.numbers;
+  if (!Array.isArray(numbers)) numbers = numbers ? [numbers] : [];
+  numbers = [...new Set(numbers)].filter((n) => /^\d{2}$/.test(n));
+  if (!numbers.length) return res.status(400).send('Please select at least one number.');
+  if (numbers.length > 100) return res.status(400).send('Too many numbers selected.');
+
+  const amountNum = parseFloat(req.body.amount);
+  if (!Number.isFinite(amountNum) || amountNum < 0 || amountNum > 10000000) {
+    return res.status(400).send('Please enter a valid amount.');
+  }
+
+  const now = new Date().toISOString();
+  const purchasesChain = db.get('purchases');
+  numbers.forEach((number, i) => {
+    purchasesChain.push({
+      id: makeId(),
+      lotteryId: lottery.id,
+      userId: user.id,
+      number,
+      buyerName: (user && user.name) ? String(user.name).trim() : 'User',
+      tickets: 1,
+      amount: amountNum,
+      requestId: `${requestId}:${i}`,
+      batchId: requestId,
+      createdAt: now,
+    });
+  });
+  purchasesChain.write();
+
+  return res.redirect('/account/numbers/' + encodeURIComponent(lottery.id) + '?notice=' + encodeURIComponent(`${numbers.length} number${numbers.length === 1 ? '' : 's'} added.`));
+});
+
 router.post('/lottery/:id/purchases/:number', requireUser, (req, res) => {
   const user = currentUser(req);
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
@@ -355,7 +407,7 @@ router.post('/lottery/:id/purchases/:number', requireUser, (req, res) => {
   const ticketStatus = ticketEntryStatus(lottery);
   if (ticketStatus.locked) return res.status(403).send(ticketStatus.message);
 
-  const ticketsNum = parseInt(req.body.tickets, 10);
+  const ticketsNum = req.body.tickets !== undefined && req.body.tickets !== '' ? parseInt(req.body.tickets, 10) : 1;
   const amountNum = parseFloat(req.body.amount);
   const requestId = String(req.body.requestId || '').trim();
   if (!requestId || requestId.length > 100) return res.status(400).send('Invalid submission. Please refresh and try again.');
