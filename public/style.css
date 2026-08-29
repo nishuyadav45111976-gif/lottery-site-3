@@ -571,6 +571,10 @@ body.has-contact-bar .container {
 
 .account-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
 .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin:16px 0; }
+.quick-entry-row { display:flex; gap:8px; margin-top:8px; }
+.quick-entry-row input[type="text"] { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:15px; }
+.quick-entry-row .btn { flex-shrink:0; }
+#quickAdminEntry code { background:var(--border,#eee); padding:1px 5px; border-radius:4px; font-size:0.85em; }
 .watch-form { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; }
 .watch-form select { margin:0; }
 .watch-list { display:grid; gap:10px; }
