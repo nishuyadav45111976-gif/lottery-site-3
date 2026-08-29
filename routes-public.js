@@ -334,4 +334,31 @@ router.get('/manifest.json', (req, res) => {
   );
 });
 
+// Separate manifest for the Admin Panel, so it installs to the home screen
+// as its own distinct app icon/name — pointing straight at /admin instead
+// of the public homepage.
+router.get('/admin-manifest.json', (req, res) => {
+  const siteName = db.get('settings.siteName').value() || 'Haryana Results';
+  res.type('application/manifest+json');
+  res.send(
+    JSON.stringify(
+      {
+        name: siteName + ' Admin',
+        short_name: 'Admin Panel',
+        start_url: '/admin',
+        display: 'standalone',
+        background_color: '#221912',
+        theme_color: '#6B4A32',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      null,
+      2
+    )
+  );
+});
+
 module.exports = router;

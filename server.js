@@ -59,7 +59,7 @@ const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '32kb' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0 }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '5m' : 0 }));
 
 app.get('/health', async (req, res) => {
   const result = await db.healthCheck();
@@ -108,6 +108,10 @@ app.use((req, res, next) => {
   // without every single admin view having to pass it in manually.
   res.locals.isAdminPage = req.path.startsWith('/admin');
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
+  // Lets the admin panel be installed to the home screen as its own app,
+  // separate from the public site's installability (enableServiceWorker
+  // below, which deliberately excludes /admin).
+  res.locals.enableAdminInstall = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.userSession = !!(req.session && req.session.userId);
 
   // Language for the public site (English/Hindi). Persisted in the session so
