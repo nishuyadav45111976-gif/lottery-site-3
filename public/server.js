@@ -59,7 +59,7 @@ const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '32kb' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0 }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '5m' : 0 }));
 
 app.get('/health', async (req, res) => {
   const result = await db.healthCheck();
