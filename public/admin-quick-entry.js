@@ -5,11 +5,12 @@
 //   - numbers, separated by commas and/or spaces, in any mix (00-99)
 //   - × (or x / X / *, repeated or with stray spaces is fine) then the
 //     amount, applied to EACH number
-//   - optional "into <lottery name>" — required unless the page already
-//     knows which lottery this is for (e.g. a lottery's own purchase page),
-//     in which case typing "into <name>" still overrides it. Small typos
-//     in the name (e.g. "Rewadi" for "Rewari") are matched to the closest
-//     lottery name automatically.
+//   - a lottery name after the amount — the word "into" is optional, so
+//     "10,11×75 into Rewari" and "10,11×75 Rewari" both work. Only needed
+//     unless the page already knows which lottery this is for (e.g. a
+//     lottery's own purchase page), in which case naming one still
+//     overrides it. Small typos (e.g. "Rewadi" for "Rewari") are matched
+//     to the closest lottery name automatically.
 //
 // Each number becomes its own internal ticket record (1 ticket, no buyer
 // name) via POST /admin/quick-purchase.
@@ -93,16 +94,49 @@
   function handleSubmit() {
     errorEl.style.display = 'none';
     var raw = (input.value || '').trim();
-    if (!raw) { showError('Type something like: 10,11,12×75 into Rewari'); return; }
+    if (!raw) { showError('Type something like: 10,11,12×75 Rewari'); return; }
 
     var lotteryId = defaultLotteryId;
     var mainPart = raw;
+    var typedName = null;
 
+    // "into <name>" still works if typed, but is no longer required — any
+    // text after the amount is treated as the lottery name.
     var intoMatch = raw.split(/\binto\b/i);
     if (intoMatch.length >= 2) {
       mainPart = intoMatch[0].trim();
-      var typedName = intoMatch.slice(1).join('into').trim();
+      typedName = intoMatch.slice(1).join('into').trim();
       if (!typedName) { showError('Enter a lottery name after "into".'); return; }
+    }
+
+    // Split on the FIRST run of ×/x/X/* only — using an anchored match
+    // instead of a global split, so a lottery name that happens to
+    // contain the letter "x" doesn't get mistaken for another separator.
+    var splitMatch = mainPart.match(/^([\d,\s]+)[×xX*]+(.*)$/);
+    if (!splitMatch) {
+      showError('Use the format: 10,11,12×75 (numbers × amount)');
+      return;
+    }
+    var numbersPart = splitMatch[1].trim();
+    var afterAmount = splitMatch[2].trim();
+
+    // Pull the leading number off as the amount; anything left over (when
+    // "into" wasn't used) is taken as the lottery name.
+    var amountMatch = afterAmount.match(/^([\d.]+)\s*(.*)$/);
+    if (!amountMatch) {
+      showError('Enter a valid amount after ×.');
+      return;
+    }
+    var amount = parseFloat(amountMatch[1]);
+    if (!isFinite(amount) || amount < 0) {
+      showError('Enter a valid amount after ×.');
+      return;
+    }
+    if (typedName === null && amountMatch[2]) {
+      typedName = amountMatch[2].trim();
+    }
+
+    if (typedName) {
       var found = resolveLottery(typedName);
       if (!found) { showError('No lottery named "' + typedName + '" found.'); return; }
       if (found.ambiguous) { showError('"' + typedName + '" matches more than one lottery: ' + found.ambiguous.join(', ') + '. Type more of the name.'); return; }
@@ -110,22 +144,7 @@
     }
 
     if (!lotteryId) {
-      showError('Add "into <lottery name>" to say which lottery this is for.');
-      return;
-    }
-
-    // Split on ×/x/X/*, tolerating repeats and stray spaces around it
-    // (e.g. "12 xx 100", "12  x  100").
-    var pieces = mainPart.split(/\s*[×xX*]+\s*/);
-    if (pieces.length !== 2) {
-      showError('Use the format: 10,11,12×75 (numbers × amount)');
-      return;
-    }
-    var numbersPart = pieces[0].trim();
-    var amountPart = pieces[1].trim();
-    var amount = parseFloat(amountPart);
-    if (!isFinite(amount) || amount < 0) {
-      showError('Enter a valid amount after ×.');
+      showError('Add the lottery name after the amount to say which lottery this is for.');
       return;
     }
 
@@ -160,4 +179,5 @@
     if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
   });
 })();
+
 
