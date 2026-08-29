@@ -772,7 +772,7 @@ router.get('/lottery/:id/purchases', (req, res) => {
   });
   follows.forEach((f) => { totals[f.number].followers += 1; });
 
-  res.render('admin-purchases-grid', { lottery, numbers: allNumbers(), totals });
+  res.render('admin-purchases-grid', { lottery, numbers: allNumbers(), totals, allLotteries: db.get('lotteries').value() || [] });
 });
 
 // CSV export of every purchase entry for a lottery, for the admin's own records
@@ -825,6 +825,56 @@ router.get('/lottery/:id/purchases/:number', (req, res) => {
   });
 
   res.render('admin-purchases-number', { lottery, number, entries, followers, users: db.get('users').value() || [], error: null });
+});
+
+// ---------- QUICK TICKET ENTRY (bulk, internal — no buyer name) ----------
+// Used by the quick-entry box on the Admin Dashboard, on a lottery's own
+// purchase-entry page, and (later) the staff panel. Parsing of the raw
+// "10,11,12×75 into Rewari" text happens client-side in
+// public/admin-quick-entry.js, which resolves the lottery name to an id and
+// posts here as structured fields. This route re-validates everything
+// server-side before writing.
+router.post('/quick-purchase', (req, res) => {
+  const lottery = db.get('lotteries').find({ id: req.body.lotteryId }).value();
+  const backPath = req.body.returnTo === 'lottery' && lottery
+    ? `/admin/lottery/${encodeURIComponent(lottery.id)}/purchases`
+    : '/admin';
+
+  if (!lottery) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Could not find that lottery — check the name and try again.'));
+  }
+
+  let numbers = req.body.numbers;
+  if (!Array.isArray(numbers)) numbers = numbers ? [numbers] : [];
+  numbers = [...new Set(numbers)].filter((n) => /^\d{2}$/.test(n));
+
+  const amountNum = parseFloat(req.body.amount);
+
+  if (!numbers.length || !Number.isFinite(amountNum) || amountNum < 0 || amountNum > 10000000) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Quick entry failed — check the numbers and amount and try again.'));
+  }
+  if (numbers.length > 100) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Too many numbers in one quick entry (max 100).'));
+  }
+
+  const now = new Date().toISOString();
+  const purchasesChain = db.get('purchases');
+  numbers.forEach((number) => {
+    purchasesChain.push({
+      id: makeId(),
+      lotteryId: lottery.id,
+      number,
+      userId: null,
+      buyerName: 'Internal Entry',
+      tickets: 1,
+      amount: amountNum,
+      createdAt: now,
+    });
+  });
+  purchasesChain.write();
+  logAction(req, 'Quick ticket entry', `${numbers.length} number(s) × ${amountNum} added to ${lottery.name}`);
+
+  return res.redirect(backPath + '?flash=' + encodeURIComponent(`${numbers.length} number${numbers.length === 1 ? '' : 's'} added to ${lottery.name}.`));
 });
 
 router.post('/lottery/:id/purchases/:number', (req, res) => {

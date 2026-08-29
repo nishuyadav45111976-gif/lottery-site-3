@@ -33,6 +33,25 @@ function sparklinePoints(series, w, h) {
   <button class="search-clear" id="searchClearBtn" onclick="document.getElementById('lotterySearch').value='';filterLotteries();" aria-label="Clear search">×</button>
 </div>
 
+<div class="card" id="quickAdminEntry">
+  <h2>Quick Ticket Entry</h2>
+  <p class="subtitle">Numbers × amount, then "into" the lottery name — e.g. <code>10,11,12,13,51,71,78,98×75 into Rewari</code></p>
+  <div class="quick-entry-row">
+    <input type="text" id="quickAdminInput" placeholder="10,11,12,13,51,71,78,98×75 into Rewari" autocomplete="off">
+    <button type="button" class="btn primary" id="quickAdminSubmit">Add</button>
+  </div>
+  <div class="error-msg" id="quickAdminError" style="display:none;"></div>
+  <form method="POST" id="quickAdminForm" action="/admin/quick-purchase" style="display:none;">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="lotteryId" id="quickAdminLotteryId" value="">
+    <input type="hidden" name="amount" id="quickAdminAmount">
+    <input type="hidden" name="returnTo" value="dashboard">
+    <div id="quickAdminNumbersInputs"></div>
+  </form>
+</div>
+<script type="application/json" id="quickAdminLotteriesData"><%- JSON.stringify(lotteries.map(function(l){return {id:l.id, name:l.name};})) %></script>
+<script src="/admin-quick-entry.js" defer></script>
+
 <% if (typeof quickSummary !== 'undefined') { %>
 <section>
   <div class="section-head"><h2>Overview</h2></div>

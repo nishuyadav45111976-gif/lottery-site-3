@@ -4,7 +4,7 @@
   <div class="top-actions">
     <div>
       <h1 style="margin:0;"><%= lottery.name %></h1>
-      <p class="subtitle">Tap a number from 00–99 to enter ticket details. Amount means the total amount for that entry.</p>
+      <p class="subtitle">Tap a number to log one ticket, or switch to multi-select to log several numbers at the same amount.</p>
     </div>
     <div class="top-actions-inline">
       <a class="btn secondary" href="/account/lotteries">Choose Lottery</a>
@@ -13,51 +13,58 @@
   </div>
 
   <style>
-    .number-grid.user-number-grid { align-items: start; }
+    .number-grid.user-number-grid { align-items: start; padding-bottom: 90px; }
     .user-number-card { min-width: 0; }
-    .user-number-card > .number-box {
-      width: 100%;
-      cursor: pointer;
+    .user-number-card > .number-box { width: 100%; cursor: pointer; }
+    .user-number-box.selected { outline: 3px solid #111; outline-offset: -3px; background: #fff7d6; }
+
+    .mode-switch {
+      display: flex; gap: 8px; margin: 14px 0; background: #eee; border-radius: 10px; padding: 4px;
     }
+    .mode-switch button {
+      flex: 1; border: 0; background: transparent; padding: 9px 8px; border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+    .mode-switch button.active { background: #111; color: #fff; }
+
+    .quick-entry {
+      border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 14px; background: #fafafa;
+    }
+    .quick-entry label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .quick-entry .hint { color: #777; font-size: 13px; margin-bottom: 8px; }
+    .quick-entry .row { display: flex; gap: 8px; }
+    .quick-entry input[type="text"] {
+      flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box;
+    }
+    .quick-entry button {
+      border: 0; border-radius: 8px; padding: 10px 14px; background: #111; color: #fff; cursor: pointer; white-space: nowrap;
+    }
+    .quick-entry .quick-error { color: #b3261e; font-size: 13px; margin-top: 6px; display: none; }
+
     .user-ticket-panel {
-      display: none;
-      margin-top: 8px;
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      background: #fff;
-      box-sizing: border-box;
+      display: none; margin-top: 8px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; background: #fff; box-sizing: border-box;
     }
     .user-ticket-panel.open { display: block; }
-    .user-ticket-panel label {
-      display: block;
-      margin: 7px 0 4px;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .user-ticket-panel input {
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-      padding: 9px 10px;
-      border: 1px solid #ccc;
-      border-radius: 7px;
-      background: #fff;
-    }
-    .user-ticket-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      margin-top: 10px;
-    }
-    .user-ticket-actions button {
-      border: 0;
-      border-radius: 7px;
-      padding: 8px 10px;
-      cursor: pointer;
-    }
+    .user-ticket-panel label { display: block; margin: 7px 0 4px; font-weight: 600; font-size: 14px; }
+    .user-ticket-panel input { display: block; width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #ccc; border-radius: 7px; background: #fff; }
+    .user-ticket-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .user-ticket-actions button { border: 0; border-radius: 7px; padding: 8px 10px; cursor: pointer; }
     .user-ticket-submit { background: #111; color: #fff; }
     .user-ticket-cancel { background: #eee; }
+
+    .multi-amount-bar {
+      position: sticky; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #ddd; box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+      padding: 12px 16px; margin: 0 -16px;
+      display: none;
+      z-index: 20;
+    }
+    .multi-amount-bar.open { display: block; }
+    .multi-amount-bar .selected-count { font-weight: 700; margin-bottom: 8px; }
+    .multi-amount-bar .row { display: flex; gap: 8px; align-items: center; }
+    .multi-amount-bar input[type="number"] { flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+    .multi-amount-bar button { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+    .multi-amount-submit { background: #111; color: #fff; }
+    .multi-amount-clear { background: #eee; }
   </style>
 
   <% if (notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %>
@@ -65,9 +72,24 @@
     <div class="error-msg" style="margin:12px 0;">🔒 Ticket entry closed. Entries stop 15 minutes before the <%= ticketStatus.drawTime %> result time.</div>
   <% } else if (ticketStatus) { %><div class="flash-msg" id="ticketOpenStatus">🟢 Ticket entry open · closes at <strong><%= ticketStatus.cutoffText %></strong> (<%= ticketStatus.timezone %>)</div><% } %>
 
-  <div class="number-grid user-number-grid">
+  <div class="mode-switch">
+    <button type="button" id="modeSingleBtn" class="active">Tap one number</button>
+    <button type="button" id="modeMultiBtn">Select multiple</button>
+  </div>
+
+  <div class="quick-entry">
+    <label for="quickEntryInput">Quick entry</label>
+    <div class="hint">Type numbers separated by commas, then × and the amount — e.g. <strong>33,01,79,67,99,23 × 100</strong></div>
+    <div class="row">
+      <input type="text" id="quickEntryInput" placeholder="33,01,79,67,99,23 × 100">
+      <button type="button" id="quickEntrySubmit">Add</button>
+    </div>
+    <div class="quick-error" id="quickEntryError"></div>
+  </div>
+
+  <div class="number-grid user-number-grid" id="numberGrid">
     <% for (let i = 0; i < 100; i++) { const n = String(i).padStart(2,'0'); %>
-      <div class="user-number-card" data-number-card>
+      <div class="user-number-card" data-number-card data-number="<%= n %>">
         <button class="number-box user-number-box" type="button" aria-label="Select number <%= n %>" data-number-trigger <%= ticketStatus && ticketStatus.locked ? 'disabled' : '' %>>
           <div class="num-label"><%= n %></div>
           <% if (purchaseTotals[n].tickets > 0) { %>
@@ -80,12 +102,8 @@
 
         <div class="user-ticket-panel" data-ticket-panel>
           <form method="post" action="/lottery/<%= lottery.id %>/purchases/<%= n %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= requestIds[n] %>">
-            <label for="tickets-<%= n %>">No. of tickets</label>
-            <input type="number" id="tickets-<%= n %>" name="tickets" min="1" step="1" inputmode="numeric" placeholder="e.g. 10" required>
-
-            <label for="amount-<%= n %>">Amount <span class="subtitle">(total)</span></label>
-            <input type="number" id="amount-<%= n %>" name="amount" min="0" step="any" inputmode="decimal" placeholder="e.g. 500" required>
-
+            <label for="amount-<%= n %>">Amount</label>
+            <input type="number" id="amount-<%= n %>" name="amount" min="0" step="any" inputmode="decimal" placeholder="e.g. 100" required>
             <div class="user-ticket-actions">
               <button type="submit" class="user-ticket-submit">Add Ticket Record</button>
               <button type="button" class="user-ticket-cancel" data-ticket-cancel>Cancel</button>
@@ -95,49 +113,158 @@
       </div>
     <% } %>
   </div>
+
+  <form class="multi-amount-bar" id="multiAmountBar" method="post" action="/lottery/<%= lottery.id %>/purchases-multi">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="requestId" value="<%= requestId %>">
+    <div id="selectedNumbersInputs"></div>
+    <div class="selected-count" id="selectedCount">0 numbers selected</div>
+    <div class="row">
+      <input type="number" name="amount" id="multiAmount" min="0" step="any" inputmode="decimal" placeholder="Amount per number" required>
+      <button type="button" class="multi-amount-clear" id="clearSelection">Clear</button>
+      <button type="submit" class="multi-amount-submit">Add Ticket Records</button>
+    </div>
+  </form>
+
+  <form method="post" action="/lottery/<%= lottery.id %>/purchases-multi" id="quickEntryForm" style="display:none;">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="requestId" value="<%= requestId %>-quick">
+    <div id="quickEntryNumbersInputs"></div>
+    <input type="hidden" name="amount" id="quickEntryAmount">
+  </form>
 </div>
 <%- include('partial-footer') %>
 
 <script>
-// Open the ticket-entry panel for any number from 00 through 99.
-document.addEventListener('submit', function (e) {
-  const form = e.target.closest('.user-ticket-panel form');
-  if (!form) return;
-  const btn = form.querySelector('.user-ticket-submit');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-});
+(function () {
+  var csrfLocked = <%= ticketStatus && ticketStatus.locked ? 'true' : 'false' %>;
+  var mode = 'single'; // 'single' | 'multi'
+  var selected = new Set();
 
-document.addEventListener('click', function (e) {
-  const trigger = e.target.closest('[data-number-trigger]');
-  if (!trigger) return;
+  var grid = document.getElementById('numberGrid');
+  var singleBtn = document.getElementById('modeSingleBtn');
+  var multiBtn = document.getElementById('modeMultiBtn');
+  var multiBar = document.getElementById('multiAmountBar');
+  var countLabel = document.getElementById('selectedCount');
+  var inputsHost = document.getElementById('selectedNumbersInputs');
 
-  const card = trigger.closest('[data-number-card]');
-  if (!card) return;
+  function closeAllPanels() {
+    grid.querySelectorAll('[data-ticket-panel].open').forEach(function (p) { p.classList.remove('open'); });
+  }
+  function clearSelection() {
+    selected.clear();
+    grid.querySelectorAll('.user-number-box.selected').forEach(function (b) { b.classList.remove('selected'); });
+    renderMulti();
+  }
+  function renderMulti() {
+    countLabel.textContent = selected.size + (selected.size === 1 ? ' number selected' : ' numbers selected');
+    multiBar.classList.toggle('open', selected.size > 0);
+    inputsHost.innerHTML = '';
+    selected.forEach(function (n) {
+      var input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'numbers'; input.value = n;
+      inputsHost.appendChild(input);
+    });
+  }
 
-  const panel = card.querySelector('[data-ticket-panel]');
-  if (!panel) return;
+  function setMode(next) {
+    mode = next;
+    singleBtn.classList.toggle('active', mode === 'single');
+    multiBtn.classList.toggle('active', mode === 'multi');
+    closeAllPanels();
+    clearSelection();
+  }
+  singleBtn.addEventListener('click', function () { setMode('single'); });
+  multiBtn.addEventListener('click', function () { setMode('multi'); });
 
-  e.preventDefault();
+  grid.addEventListener('click', function (e) {
+    var trigger = e.target.closest('[data-number-trigger]');
+    if (!trigger || trigger.disabled) return;
+    var card = trigger.closest('[data-number-card]');
+    var n = card.dataset.number;
 
-  document.querySelectorAll('[data-ticket-panel].open').forEach(function (other) {
-    if (other !== panel) other.classList.remove('open');
+    if (mode === 'single') {
+      var panel = card.querySelector('[data-ticket-panel]');
+      grid.querySelectorAll('[data-ticket-panel].open').forEach(function (other) {
+        if (other !== panel) other.classList.remove('open');
+      });
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) {
+        var amt = panel.querySelector('input[name="amount"]');
+        if (amt) amt.focus();
+      }
+    } else {
+      if (selected.has(n)) { selected.delete(n); trigger.classList.remove('selected'); }
+      else { selected.add(n); trigger.classList.add('selected'); }
+      renderMulti();
+    }
   });
 
-  panel.classList.toggle('open');
+  grid.addEventListener('click', function (e) {
+    var cancel = e.target.closest('[data-ticket-cancel]');
+    if (!cancel) return;
+    var panel = cancel.closest('[data-ticket-panel]');
+    if (panel) panel.classList.remove('open');
+  });
 
-  if (panel.classList.contains('open')) {
-    const ticketsInput = panel.querySelector('input[name="tickets"]');
-    if (ticketsInput) ticketsInput.focus();
-  }
-});
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('.user-ticket-panel form, .multi-amount-bar');
+    if (!form) return;
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  });
 
-document.addEventListener('click', function (e) {
-  const cancel = e.target.closest('[data-ticket-cancel]');
-  if (!cancel) return;
+  document.getElementById('clearSelection').addEventListener('click', clearSelection);
 
-  const panel = cancel.closest('[data-ticket-panel]');
-  if (panel) panel.classList.remove('open');
-});
+  // Quick entry: "33,01,79,67,99,23 × 100"
+  var quickInput = document.getElementById('quickEntryInput');
+  var quickError = document.getElementById('quickEntryError');
+  document.getElementById('quickEntrySubmit').addEventListener('click', function () {
+    quickError.style.display = 'none';
+    var raw = (quickInput.value || '').trim();
+    var parts = raw.split(/[×xX*]/);
+    if (parts.length !== 2) {
+      quickError.textContent = 'Use the format: 33,01,79 × 100';
+      quickError.style.display = 'block';
+      return;
+    }
+    var numbersPart = parts[0].trim();
+    var amountPart = parts[1].trim();
+    var amount = parseFloat(amountPart);
+    if (!isFinite(amount) || amount < 0) {
+      quickError.textContent = 'Enter a valid amount after ×.';
+      quickError.style.display = 'block';
+      return;
+    }
+    var rawNumbers = numbersPart.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var numbers = [];
+    for (var i = 0; i < rawNumbers.length; i++) {
+      var s = rawNumbers[i];
+      if (!/^\d{1,2}$/.test(s)) {
+        quickError.textContent = '"' + s + '" is not a valid number (00-99).';
+        quickError.style.display = 'block';
+        return;
+      }
+      numbers.push(s.padStart(2, '0'));
+    }
+    if (!numbers.length) {
+      quickError.textContent = 'Enter at least one number before ×.';
+      quickError.style.display = 'block';
+      return;
+    }
+
+    var form = document.getElementById('quickEntryForm');
+    var host = document.getElementById('quickEntryNumbersInputs');
+    host.innerHTML = '';
+    numbers.forEach(function (n) {
+      var input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'numbers'; input.value = n;
+      host.appendChild(input);
+    });
+    document.getElementById('quickEntryAmount').value = amount;
+    form.submit();
+  });
+})();
 </script>
 
 <script>
