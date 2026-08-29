@@ -1,0 +1,147 @@
+  </main>
+
+  <% if (typeof isAdminNavPage !== 'undefined' && isAdminNavPage) { %>
+    <a class="fab" href="/admin/lottery/new" aria-label="Add new lottery">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </a>
+    <nav class="bottom-nav">
+      <a class="nav-btn <%= currentUrl && currentUrl.endsWith('/admin') ? 'active' : '' %>" href="/admin">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg>Dashboard</a>
+      <a class="nav-btn <%= typeof currentUrl !== 'undefined' && currentUrl.includes('/admin/users') ? 'active' : '' %>" href="/admin/users">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 7.75"/></svg>Users</a>
+      <a class="nav-btn <%= typeof currentUrl !== 'undefined' && currentUrl.includes('/admin/stats') ? 'active' : '' %>" href="/admin/stats">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="19" x2="4" y2="9"/><line x1="10" y1="19" x2="10" y2="5"/><line x1="16" y1="19" x2="16" y2="12"/><line x1="22" y1="19" x2="22" y2="3"/></svg>Reports</a>
+      <a class="nav-btn <%= typeof currentUrl !== 'undefined' && currentUrl.includes('/admin/hub') ? 'active' : '' %>" href="/admin/hub">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.84A1.7 1.7 0 0 0 8.4 10a1.7 1.7 0 0 0-.34-1.88L8 8.06l1.7-1.7.06.06A1.7 1.7 0 0 0 11.64 6.8 1.7 1.7 0 0 0 12.67 5.24V5h2.4v.24A1.7 1.7 0 0 0 16.1 6.8a1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.34 10a1.7 1.7 0 0 0 1.56 1.03H21v2.4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg>Settings</a>
+      <button type="button" class="nav-btn" onclick="openAdminSheet('menu')">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More</button>
+    </nav>
+
+    <div class="sheet-backdrop" id="adminSheetBackdrop" onclick="closeAdminSheet()"></div>
+    <div class="sheet" id="adminSheet">
+      <div class="handle"></div>
+      <p class="sheet-title" id="adminSheetTitle">Actions</p>
+      <div id="adminSheetBody"></div>
+    </div>
+
+    <script>
+      (function () {
+        var sheet = document.getElementById('adminSheet');
+        var backdrop = document.getElementById('adminSheetBackdrop');
+        var title = document.getElementById('adminSheetTitle');
+        var body = document.getElementById('adminSheetBody');
+
+        window.openAdminSheet = function (which) {
+          var srcId = which === 'menu' ? 'sheetTemplate-menu' : which === 'profile' ? 'sheetTemplate-profile' : 'sheetTemplate-' + which;
+          var tpl = document.getElementById(srcId);
+          if (!tpl) return;
+          title.textContent = tpl.getAttribute('data-title') || 'Actions';
+          body.innerHTML = '';
+          body.appendChild(tpl.content.cloneNode(true));
+          backdrop.classList.add('show');
+          sheet.classList.add('show');
+        };
+        window.closeAdminSheet = function () {
+          backdrop.classList.remove('show');
+          sheet.classList.remove('show');
+        };
+
+        // Shared "More" menu + profile menu, available on every admin page.
+        var menuTpl = document.createElement('template');
+        menuTpl.id = 'sheetTemplate-menu';
+        menuTpl.setAttribute('data-title', 'Admin menu');
+        menuTpl.innerHTML =
+          '<a class="sheet-item" href="/admin/users"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/></svg></span><span class="sheet-label">Users</span></a>' +
+          '<a class="sheet-item" href="/admin/stats"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="19" x2="4" y2="9"/><line x1="10" y1="19" x2="10" y2="5"/><line x1="16" y1="19" x2="16" y2="12"/><line x1="22" y1="19" x2="22" y2="3"/></svg></span><span class="sheet-label">Reports</span></a>' +
+          '<a class="sheet-item" href="/admin/audit-log"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="sheet-label">Audit Log</span></a>' +
+          '<a class="sheet-item" href="/admin/hub"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></span><span class="sheet-label">Settings</span></a>' +
+          '<a class="sheet-item" href="/" target="_blank" rel="noopener"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></span><span class="sheet-label">View Site</span></a>';
+        document.body.appendChild(menuTpl);
+
+        var profileTpl = document.createElement('template');
+        profileTpl.id = 'sheetTemplate-profile';
+        profileTpl.setAttribute('data-title', 'Admin profile');
+        profileTpl.innerHTML =
+          '<a class="sheet-item" href="/admin/hub"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></span><span class="sheet-label">Account Settings</span></a>' +
+          '<a class="sheet-item" href="/admin/audit-log"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="sheet-label">Audit Log</span></a>' +
+          '<form class="sheet-item-form" method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item danger" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span class="sheet-label">Log Out</span></button></form>';
+        document.body.appendChild(profileTpl);
+      })();
+    </script>
+  <% } %>
+
+  <% if (typeof contactNumber !== 'undefined' && contactNumber) { %>
+    <div class="contact-bar">
+      <span class="contact-label"><%= contactLabel %>:</span>
+      <% if (contactType === 'whatsapp') { %>
+        <a class="contact-number" href="https://wa.me/<%= contactDigits %>" target="_blank" rel="noopener"><%= contactNumber %></a>
+      <% } else { %>
+        <a class="contact-number" href="tel:<%= contactNumber %>"><%= contactNumber %></a>
+      <% } %>
+    </div>
+  <% } %>
+
+  <script>
+    (function(){var b=document.getElementById('mobileNavToggle'),n=document.getElementById('siteNav');if(!b||!n)return;b.addEventListener('click',function(){var open=n.classList.toggle('mobile-open');b.setAttribute('aria-expanded',open?'true':'false');});})();
+
+    // Dark mode toggle — applies immediately and remembers the choice
+    (function () {
+      var btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+      function updateIcon() { btn.textContent = isDark() ? '☀️' : '🌙'; }
+      updateIcon();
+      btn.addEventListener('click', function () {
+        if (isDark()) {
+          document.documentElement.removeAttribute('data-theme');
+          try { localStorage.setItem('theme', 'light'); } catch (e) {}
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+        }
+        updateIcon();
+      });
+    })();
+  </script>
+
+  <% if ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof enableAdminInstall !== 'undefined' && enableAdminInstall)) { %>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+
+      // "Install App" button — only appears once the browser says the site
+      // is installable (mainly Chrome/Edge on Android/desktop; Safari/iOS
+      // doesn't support this prompt, so the button just won't show there).
+      (function () {
+        var deferredPrompt = null;
+        var bar = document.getElementById('installAppBar');
+        var btn = document.getElementById('installAppBtn');
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          deferredPrompt = e;
+          if (bar) bar.style.display = 'block';
+        });
+
+        if (btn) {
+          btn.addEventListener('click', function () {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.finally(function () {
+              deferredPrompt = null;
+              if (bar) bar.style.display = 'none';
+            });
+          });
+        }
+
+        window.addEventListener('appinstalled', function () {
+          if (bar) bar.style.display = 'none';
+        });
+      })();
+    </script>
+  <% } %>
+</body>
+</html>
