@@ -575,6 +575,10 @@ body.has-contact-bar .container {
 .quick-entry-row input[type="text"] { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:15px; }
 .quick-entry-row .btn { flex-shrink:0; }
 #quickAdminEntry code { background:var(--border,#eee); padding:1px 5px; border-radius:4px; font-size:0.85em; }
+.mode-switch { display:flex; gap:8px; background:var(--border,#eee); border-radius:10px; padding:4px; }
+.mode-switch button { flex:1; padding:10px 12px; border:none; border-radius:8px; background:transparent; font-weight:600; font-size:14px; cursor:pointer; color:inherit; }
+.mode-switch button.active { background:#111; color:#fff; }
+body.admin-theme .mode-switch button.active { background:#6B4A32; color:#F3EADF; }
 .watch-form { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; }
 .watch-form select { margin:0; }
 .watch-list { display:grid; gap:10px; }
