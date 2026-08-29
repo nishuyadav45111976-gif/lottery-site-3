@@ -386,6 +386,7 @@ function sparklinePoints(values, width, height) {
 }
 
 router.get('/', async (req, res) => {
+  await db.applyAutoStar().catch(() => {});
   const dbHealth=await db.healthCheck();
   const lotteries=getLotteriesWithLatest(); const purchases=db.allPurchasesEverMade(); const users=db.get('users').value()||[]; const totalTickets=purchases.reduce((s,p)=>s+(Number(p.tickets)||0),0); const totalAmount=purchases.reduce((s,p)=>s+(Number(p.amount)||0),0);
   const recentActivity=(db.get('auditLog').value()||[]).slice(-4).reverse();
@@ -400,6 +401,7 @@ router.get('/', async (req, res) => {
 
   res.render('admin-dashboard', {
     lotteries, error: null, recentActivity, sparklinePoints,
+    starMode: db.get('settings.starMode').value() || 'manual',
     quickSummary: { users: users.length, totalTickets, totalAmount, lotteries: lotteries.length, database: dbHealth.ok, ticketsToday, usersThisMonth, usersSpark, ticketsSpark },
   });
 });
@@ -489,9 +491,29 @@ router.post('/lottery/:id/edit', (req, res) => {
 
 // ---------- STAR / UNSTAR A LOTTERY (only one at a time) ----------
 
+// Manual: admin picks the starred lottery by hand (the toggle below).
+// Automatic: the star follows whichever lottery is closest to its draw —
+// see db.applyAutoStar, checked every 30s and on page load.
+router.post('/star-mode', (req, res) => {
+  const mode = req.body.mode === 'auto' ? 'auto' : 'manual';
+  db.set('settings.starMode', mode).write();
+  logAction(req, 'Star mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
+  if (mode === 'auto') {
+    db.applyAutoStar().catch(() => {}).finally(() => {
+      redirectWithFlash(res, '/admin', 'Automatic star mode enabled.');
+    });
+  } else {
+    redirectWithFlash(res, '/admin', 'Switched back to manual star selection.');
+  }
+});
+
 router.post('/lottery/:id/star', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Lottery not found');
+
+  if (db.get('settings.starMode').value() === 'auto') {
+    return redirectWithFlash(res, '/admin', 'Switch to Manual star mode first to pick a lottery by hand.');
+  }
 
   if (lottery.starred) {
     // Already starred — clicking again removes the star

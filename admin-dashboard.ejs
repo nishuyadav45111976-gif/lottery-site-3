@@ -92,6 +92,18 @@ function sparklinePoints(series, w, h) {
 </section>
 
 <section>
+  <div class="card" id="starModeCard">
+    <h2>⭐ Star Mode</h2>
+    <p class="subtitle">Manual: you pick the starred lottery yourself. Automatic: the star follows whichever lottery is closest to its draw, and stays on the one that just published for 15 minutes.</p>
+    <div class="mode-switch" style="margin-top:10px;">
+      <form method="POST" action="/admin/star-mode" style="display:contents;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" name="mode" value="manual" class="<%= (typeof starMode === 'undefined' || starMode !== 'auto') ? 'active' : '' %>">Manual</button>
+        <button type="submit" name="mode" value="auto" class="<%= (typeof starMode !== 'undefined' && starMode === 'auto') ? 'active' : '' %>">Automatic</button>
+      </form>
+    </div>
+  </div>
+
   <div class="section-head"><h2>Your lotteries</h2></div>
 
   <% if (lotteries.length > 3) { %>
@@ -149,7 +161,11 @@ function sparklinePoints(series, w, h) {
         <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/result"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Update Result</span></a>
         <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/purchases"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg></span><span class="sheet-label">Ticket Purchases</span></a>
         <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/edit"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Edit Lottery</span></a>
+        <% if (typeof starMode !== 'undefined' && starMode === 'auto') { %>
+        <div class="sheet-item" style="box-shadow:none; opacity:0.6;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label">Star is Automatic<% if (lottery.starred) { %> (currently on)<% } %></span></div>
+        <% } else { %>
         <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label"><%= lottery.starred ? 'Remove Star' : 'Star This Lottery' %></span></button></form>
+        <% } %>
         <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/main"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="sheet-label"><%= lottery.isMain ? 'Remove from Main' : 'Set as Main' %></span></button></form>
         <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/delete" onsubmit="return confirm('Delete this lottery and all its results? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item danger" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span><span class="sheet-label">Delete Lottery</span></button></form>
       </template>

@@ -124,6 +124,7 @@ router.get('/lang/:code', (req, res) => {
 // Homepage: show every lottery with its two most recent results side by side
 router.get('/', async (req, res) => {
   await trackVisit(req);
+  await db.applyAutoStar().catch(() => {});
   const lotteries = db.get('lotteries').value() || [];
 
   const lotteriesWithResults = lotteries.map((lottery) => {

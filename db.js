@@ -15,6 +15,7 @@ const defaults = {
     privacyText: 'We collect only what is needed to run your account: a login session, and the ticket/number details you choose to save. Passwords are stored securely (hashed) and never in plain text. We do not sell your data to third parties. Use of this site is at your own discretion.',
     aboutText: 'This site publishes daily lottery results for informational purposes. For questions, corrections, or support, please use the contact details shown at the bottom of the site.',
     faqText: 'When do results get posted?\nResults are posted as soon as possible after each draw closes, and sometimes automatically at the exact draw time if scheduled ahead of time by an admin.\n\nAre these official results?\nResults shown here are compiled for informational purposes. Please verify with the official source before acting on them.\n\nDo you sell tickets or accept payments?\nNo. This site only displays results — it does not sell tickets or handle real-money gambling.\n\nHow often is this page updated?\nThe page automatically refreshes with the latest result when you return to it after being away.',
+    starMode: 'manual',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };
@@ -451,6 +452,93 @@ async function publishDueScheduledResults() {
   if (due.length) await flushState();
 }
 
+function parseDrawMinutesForStar(drawTime) {
+  if (!drawTime) return null;
+  const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
+  let m = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/);
+  let h, min, ap;
+  if (m) { h = Number(m[1]); min = Number(m[2]); ap = m[3]; }
+  else {
+    m = raw.match(/^(\d{1,2})\s*(AM|PM)$/);
+    if (!m) return null;
+    h = Number(m[1]); min = 0; ap = m[2];
+  }
+  if (min > 59) return null;
+  if (ap) {
+    if (h >= 13 && h <= 23) { /* legacy 23:07pm-style values pass through as-is */ }
+    else { if (h < 1 || h > 12) return null; if (h === 12) h = 0; if (ap === 'PM') h += 12; }
+  }
+  if (h < 0 || h > 23) return null;
+  return h * 60 + min;
+}
+
+function zonedNowForStar(timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(new Date());
+  const get = (type) => Number(parts.find((p) => p.type === type).value);
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute') };
+}
+
+// Checked on a short interval from server.js, same as the scheduled-publish
+// check above — only does anything when settings.starMode is 'auto'.
+// Whichever lottery most recently published today's result stays starred
+// for 15 minutes; after that (or if nothing published recently), the star
+// moves to whichever lottery's draw time is coming up soonest, wrapping to
+// tomorrow once every lottery has already drawn for today.
+async function applyAutoStar() {
+  const mode = dbGet('settings.starMode').value();
+  if (mode !== 'auto') return;
+
+  const lotteries = dbGet('lotteries').value() || [];
+  if (!lotteries.length) return;
+
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const now = zonedNowForStar(tz);
+  const today = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
+  const nowMinutes = now.hour * 60 + now.minute;
+  const nowMs = Date.now();
+  const results = dbGet('results').value() || [];
+
+  let recent = null;
+  lotteries.forEach((lottery) => {
+    const todayResult = results.find((r) => r.lotteryId === lottery.id && r.date === today && !r.deletedAt && r.published !== false);
+    if (!todayResult || !todayResult.updatedAt) return;
+    const publishedMs = new Date(todayResult.updatedAt).getTime();
+    if (!Number.isFinite(publishedMs)) return;
+    const ageMinutes = (nowMs - publishedMs) / 60000;
+    if (ageMinutes >= 0 && ageMinutes <= 15 && (!recent || publishedMs > recent.publishedMs)) {
+      recent = { lottery, publishedMs };
+    }
+  });
+
+  let winnerId = null;
+  if (recent) {
+    winnerId = recent.lottery.id;
+  } else {
+    let best = null;
+    lotteries.forEach((lottery) => {
+      const drawMinutes = parseDrawMinutesForStar(lottery.drawTime);
+      if (drawMinutes == null) return;
+      const distance = ((drawMinutes - nowMinutes) % 1440 + 1440) % 1440;
+      if (!best || distance < best.distance) best = { lottery, distance };
+    });
+    if (best) winnerId = best.lottery.id;
+  }
+  if (!winnerId) return;
+
+  const alreadyCorrect = lotteries.every((l) => !!l.starred === (l.id === winnerId));
+  if (alreadyCorrect) return;
+
+  lotteries.forEach((l) => {
+    const shouldBeStarred = l.id === winnerId;
+    if (!!l.starred !== shouldBeStarred) {
+      dbGet('lotteries').find({ id: l.id }).assign({ starred: shouldBeStarred }).write();
+    }
+  });
+  await flushState();
+}
+
 // A published result closes out that lottery's current betting round.
 // Rather than just marking a "since when" cutoff and filtering by it on every
 // read (which turned out not to survive a free-tier Render restart
@@ -494,7 +582,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, startNewRound, allPurchasesEverMade };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, applyAutoStar, startNewRound, allPurchasesEverMade };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');

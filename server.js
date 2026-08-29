@@ -153,6 +153,12 @@ setInterval(() => {
   db.publishDueScheduledResults().catch((e) => console.error('Scheduled publish check failed:', e));
 }, 30 * 1000);
 
+// Keeps the "starred" lottery current when Automatic star mode is on (see
+// db.applyAutoStar) — no-ops instantly when star mode is set to Manual.
+setInterval(() => {
+  db.applyAutoStar().catch((e) => console.error('Auto-star check failed:', e));
+}, 30 * 1000);
+
 // Automatically move results older than 40 days into the trash (see
 // db.cleanupOldResults). Run once on startup, then once a day after that.
 const removedOnStartup = db.cleanupOldResults();
