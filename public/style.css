@@ -371,6 +371,22 @@ td.dim-cell { color: var(--text-dim); }
   font-weight: 400;
   font-size: 0.7rem;
   margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.table-scroll-wrap {
+  overflow-x: auto;
+  margin-top: 16px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.table-scroll-wrap table { margin-top: 0; box-shadow: none; }
+
+@media (max-width: 480px) {
+  #lotteryTable th, #lotteryTable td { padding: 10px 8px; font-size: 0.85rem; }
+  #lotteryTable .date-sub { font-size: 0.65rem; }
 }
 
 .top-actions {
