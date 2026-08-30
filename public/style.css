@@ -10,6 +10,8 @@
   --success: #22c55e;
   --banner-green: #17a673;
   --header-navy: #14213d;
+  --special-primary: #6d3fa0;
+  --special-primary-dark: #4f2c78;
 }
 
 [data-theme="dark"] {
@@ -24,6 +26,8 @@
   --success: #4ade80;
   --banner-green: #0d7a52;
   --header-navy: #0a0f1a;
+  --special-primary: #8a5cc4;
+  --special-primary-dark: #5c3690;
 }
 
 [data-theme="dark"] input[type=text],
@@ -447,6 +451,39 @@ td.dim-cell { color: var(--text-dim); }
   font-weight: 400;
   color: rgba(255,255,255,0.6);
   margin-top: 2px;
+}
+
+/* ---------- Special Lottery (000-999) — same visual language as the rest
+   of the site, purple instead of navy so it reads as a distinct, "special"
+   section without feeling like a different app. ---------- */
+.special-section {
+  margin: 0 0 20px;
+  padding: 18px 16px 6px;
+  background: linear-gradient(180deg, rgba(109,63,160,0.08), transparent);
+  border-radius: 0 0 18px 18px;
+}
+.special-section-heading {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 1.05rem; font-weight: 800; color: var(--special-primary-dark);
+  margin: 0 0 4px;
+}
+[data-theme="dark"] .special-section-heading { color: #caa8f0; }
+.special-section-sub { color: var(--text-dim); font-size: 0.82rem; margin: 0 0 10px; }
+
+.featured-box.special {
+  background: linear-gradient(135deg, var(--special-primary), #3a2360);
+}
+.featured-box.special .featured-label { color: #f0d99a; }
+.featured-box.special .featured-result { color: #f0d99a; }
+
+.card-grid.special-grid { margin-top: 12px; }
+.lottery-card.special-card:hover { border-color: var(--special-primary); }
+.lottery-card.special-card .result { color: var(--special-primary-dark); }
+[data-theme="dark"] .lottery-card.special-card .result { color: #caa8f0; }
+.special-chip {
+  display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+  background: var(--special-primary); color: #fff; padding: 2px 8px; border-radius: 999px;
+  margin-bottom: 6px;
 }
 
 .star-btn {

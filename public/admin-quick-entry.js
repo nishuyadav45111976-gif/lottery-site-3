@@ -27,6 +27,8 @@
   var numbersHost = document.getElementById('quickAdminNumbersInputs');
 
   var defaultLotteryId = box.getAttribute('data-lottery-id') || '';
+  var digits = parseInt(box.getAttribute('data-digits'), 10) === 3 ? 3 : 2;
+  var maxValueLabel = digits === 3 ? '000-999' : '00-99';
 
   var lotteries = [];
   var lotteriesDataEl = document.getElementById('quickAdminLotteriesData');
@@ -154,8 +156,8 @@
     var numbers = [];
     for (var i = 0; i < rawNumbers.length; i++) {
       var s = rawNumbers[i];
-      if (!/^\d{1,2}$/.test(s)) { showError('"' + s + '" is not a valid number (00-99).'); return; }
-      numbers.push(s.padStart(2, '0'));
+      if (!new RegExp('^\\d{1,' + digits + '}$').test(s)) { showError('"' + s + '" is not a valid number (' + maxValueLabel + ').'); return; }
+      numbers.push(s.padStart(digits, '0'));
     }
     if (!numbers.length) { showError('Enter at least one number before ×.'); return; }
     if (numbers.length > 100) { showError('Too many numbers in one entry (max 100).'); return; }
