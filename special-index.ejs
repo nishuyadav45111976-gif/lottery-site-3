@@ -1,0 +1,31 @@
+<%- include('partial-header', { title: 'Special Lottery Results' }) %>
+
+<a class="back-link" href="/">&larr; All Results</a>
+<h1>🎰 Special Lottery <span class="special-chip" style="vertical-align:middle;">000–999</span></h1>
+<p class="subtitle">Each special lottery draws once every 7 days. On the homepage it only shows up on its actual draw day — this page always shows every one of them, so you can check back any time.</p>
+
+<% if (specialLotteries.length === 0) { %>
+  <div class="empty-state">No special lotteries yet.</div>
+<% } else { %>
+  <div class="card-grid special-grid">
+    <% specialLotteries.forEach(function(lottery) { %>
+      <a class="lottery-card special-card" href="/special/<%= lottery.slug %>">
+        <div><span class="special-chip"><%= lottery.isDrawDayToday ? 'Draws today' : 'Special' %></span></div>
+        <div class="name"><%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %></div>
+        <% if (lottery.latestResult) { %>
+          <div class="result"><%= lottery.latestResult.resultText %></div>
+          <div class="date">Latest · <%= lottery.latestResult.date %></div>
+        <% } else if (lottery.upcoming) { %>
+          <div class="no-result"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
+        <% } else { %>
+          <div class="no-result">No result yet</div>
+        <% } %>
+        <% if (!lottery.isDrawDayToday && lottery.nextDrawDate) { %>
+          <div class="date">Next draw · <%= lottery.nextDrawDate %></div>
+        <% } %>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<%- include('partial-footer') %>

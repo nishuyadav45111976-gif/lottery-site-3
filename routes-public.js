@@ -50,6 +50,39 @@ function dateString(clock) {
   return `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`;
 }
 
+// Special Lotteries draw once every 7 days, not daily. The cycle is
+// anchored to whichever date its first-ever result was posted on — so if
+// the first result landed on the 30th, the next is the 7th, then the
+// 14th, and so on, whatever weekday that happens to fall on. A lottery
+// with no results yet has nothing to anchor to, so it's treated as always
+// "on" until it gets its first result.
+function specialDrawAnchorDate(results) {
+  if (!results || !results.length) return null;
+  return results.reduce((min, r) => (r.date < min ? r.date : min), results[0].date);
+}
+
+function isSpecialDrawDayToday(anchorDate, todayStr) {
+  if (!anchorDate) return true;
+  const anchor = new Date(`${anchorDate}T00:00:00Z`);
+  const today = new Date(`${todayStr}T00:00:00Z`);
+  const diffDays = Math.round((today.getTime() - anchor.getTime()) / 86400000);
+  if (diffDays < 0) return false;
+  return diffDays % 7 === 0;
+}
+
+// Next date (YYYY-MM-DD) this special lottery is due to draw again, for
+// display when today isn't its day.
+function nextSpecialDrawDate(anchorDate, todayStr) {
+  if (!anchorDate) return null;
+  const anchor = new Date(`${anchorDate}T00:00:00Z`);
+  const today = new Date(`${todayStr}T00:00:00Z`);
+  let diffDays = Math.round((today.getTime() - anchor.getTime()) / 86400000);
+  if (diffDays < 0) diffDays = 0;
+  const daysUntilNext = 7 - (diffDays % 7);
+  const next = new Date(today.getTime() + daysUntilNext * 86400000);
+  return next.toISOString().slice(0, 10);
+}
+
 function previousDate(date) {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
@@ -148,7 +181,9 @@ router.get('/', async (req, res) => {
   const mainLotteries = lotteriesWithResults.filter((l) => l.isMain).slice(0, 4);
 
   await db.applyAutoSpecialStar().catch(() => {});
-  const specialLotteries = (db.get('specialLotteries').value() || []).map((lottery) => {
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const todayForSpecial = dateString(zonedNow(tz));
+  const specialLotteriesAll = (db.get('specialLotteries').value() || []).map((lottery) => {
     const results = db
       .get('specialResults')
       .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
@@ -156,13 +191,20 @@ router.get('/', async (req, res) => {
       .reverse()
       .value();
     const resultState = publicResultState(lottery, results);
+    const anchorDate = specialDrawAnchorDate(results);
     return {
       ...lottery,
       latestResult: resultState.latestResult,
       previousResult: resultState.previousResult,
       upcoming: resultState.upcoming,
+      isDrawDayToday: isSpecialDrawDayToday(anchorDate, todayForSpecial),
+      nextDrawDate: nextSpecialDrawDate(anchorDate, todayForSpecial),
     };
   });
+  // The homepage embed only shows special lotteries on their actual (weekly)
+  // draw day — otherwise it disappears until the next one. The full list is
+  // always reachable from the dedicated /special page (see below).
+  const specialLotteries = specialLotteriesAll.filter((l) => l.isDrawDayToday);
   const starredSpecialLottery = specialLotteries.find((l) => l.starred) || null;
 
   // Most recent moment any result was entered or edited, for a "last updated" note
@@ -207,6 +249,37 @@ router.get('/lottery/:slug', async (req, res) => {
 });
 
 // Same as /lottery/:slug, for Special Lotteries (000-999 games).
+// Special Lottery index — always shows every special lottery (unlike the
+// homepage embed, which only shows each one on its actual weekly draw
+// day). This is the "go look any time" page linked from the icon in the
+// header.
+router.get('/special', async (req, res) => {
+  await trackVisit(req);
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const todayStr = dateString(zonedNow(tz));
+
+  const specialLotteries = (db.get('specialLotteries').value() || []).map((lottery) => {
+    const results = db
+      .get('specialResults')
+      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
+      .sortBy('date')
+      .reverse()
+      .value();
+    const resultState = publicResultState(lottery, results);
+    const anchorDate = specialDrawAnchorDate(results);
+    return {
+      ...lottery,
+      latestResult: resultState.latestResult,
+      previousResult: resultState.previousResult,
+      upcoming: resultState.upcoming,
+      isDrawDayToday: isSpecialDrawDayToday(anchorDate, todayStr),
+      nextDrawDate: nextSpecialDrawDate(anchorDate, todayStr),
+    };
+  });
+
+  res.render('special-index', { specialLotteries });
+});
+
 router.get('/special/:slug', async (req, res) => {
   await trackVisit(req);
   const lottery = db.get('specialLotteries').find({ slug: req.params.slug }).value();

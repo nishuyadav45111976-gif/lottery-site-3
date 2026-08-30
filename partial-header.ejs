@@ -78,6 +78,9 @@
         <button id="themeToggleBtn" type="button" class="lang-toggle" style="background:transparent; cursor:pointer;">🌙</button>
       </nav>
     </div>
+    <% if (typeof hasSpecialLotteries !== 'undefined' && hasSpecialLotteries) { %>
+      <a href="/special" class="special-header-link">🎰 Special Lottery <span>›</span></a>
+    <% } %>
   </header>
   <% } %>
 

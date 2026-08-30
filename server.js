@@ -120,6 +120,7 @@ app.use((req, res, next) => {
   res.locals.lang = lang;
   res.locals.t = translator(lang);
   res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
+  res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
   // Keep user login/account links out of the public-facing results pages.
   // They remain available on the private /account and /login screens.
   res.locals.isUserArea = req.path === '/login' || req.path.startsWith('/account') || req.path === '/recover';
