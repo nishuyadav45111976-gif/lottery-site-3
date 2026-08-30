@@ -133,6 +133,21 @@
     <input type="hidden" name="amount" id="quickEntryAmount">
   </form>
 </div>
+<script>
+  (function() {
+    document.querySelectorAll('form').forEach(function(form) {
+      form.addEventListener('submit', function() {
+        var btn = form.querySelector('button[type="submit"]');
+        if (!btn || btn.disabled) return;
+        var text = btn.textContent.trim().toLowerCase();
+        if (text.indexOf('save') === -1 && text.indexOf('add') === -1 && text.indexOf('change') === -1 && text.indexOf('update') === -1) return;
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent.trim();
+        btn.textContent = 'Saving...';
+      });
+    });
+  })();
+</script>
 <%- include('partial-footer') %>
 
 <script>

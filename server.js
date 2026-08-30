@@ -1,3 +1,15 @@
+/*
+ * RATE LIMITING & CSP CHANGES
+ * - express-rate-limit protects login, ticket submission, and admin result endpoints.
+ * - Login pages (/login, /admin/login): 5 attempts per 15 min per IP.
+ * - Ticket submissions (/lottery/:id/purchases-multi, /lottery/:id/purchases/:number,
+ *   /account/tickets/:id/edit): 20 per 15 min per user ID.
+ * - Admin result updates (/admin/lottery/:id/result, /admin/special/lottery/:id/result):
+ *   10 per 15 min per admin.
+ * - Content Security Policy is now enforced (was previously disabled).
+ * - Trust proxy hops are read from TRUST_PROXY_HOPS env var (default 1).
+ */
+
 require("dotenv").config();
 
 if (process.env.NODE_ENV !== "production") {
@@ -13,7 +25,7 @@ if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET is required in production");
 }
 if (process.env.COOKIE_SECURE !== "true") {
-  throw new Error("COOKIE_SECURE=true is required in production");
+  throw new Error("COOKIE_SECURE=true is required for production");
 }
 if (!process.env.BACKUP_ENCRYPTION_KEY) {
   throw new Error("BACKUP_ENCRYPTION_KEY is required in production");
@@ -25,6 +37,7 @@ if (process.env.LOTTERY_TIMEZONE !== "Asia/Kolkata") {
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const PgSession = require('connect-pg-simple')(session);
@@ -39,16 +52,26 @@ const userRoutes = require('./routes-user').router;
 
 const app = express();
 
-// Trust the platform's reverse proxy (Replit, Render, etc.) so req.ip reflects
-// the real visitor instead of the proxy — needed for accurate login lockouts.
-app.set('trust proxy', 1);
+// Trust proxy hops configurable via env (default 1) for accurate req.ip behind reverse proxies.
+const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
+app.set('trust proxy', Number.isNaN(trustProxyHops) ? 1 : trustProxyHops);
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname);
 
-// Production security headers.
+// Production security headers with proper CSP.
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -127,6 +150,52 @@ app.use((req, res, next) => {
   req.session.visitorId = req.session.visitorId || crypto.randomUUID();
   res.locals.visitorId = req.session.visitorId;
 
+  next();
+});
+
+// Rate limiters (must be after session() so userId / adminId are available)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts. Please try again after 15 minutes.',
+});
+
+const ticketSubmissionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.session && req.session.userId) || req.ip,
+  message: 'Too many ticket submissions. Please try again after 15 minutes.',
+});
+
+const adminResultLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.session && (req.session.adminId || req.session.userId)) || req.ip,
+  message: 'Too many result updates. Please try again after 15 minutes.',
+});
+
+const postOnly = (limiter) => (req, res, next) => req.method === 'POST' ? limiter(req, res, next) : next();
+
+app.use((req, res, next) => {
+  const path = req.path;
+  if (path === '/login' || path === '/admin/login') {
+    return postOnly(loginLimiter)(req, res, next);
+  }
+  if (path.match(/^\/lottery\/[^/]+\/purchases-multi$/) ||
+      path.match(/^\/lottery\/[^/]+\/purchases\/[^/]+$/) ||
+      path.match(/^\/account\/tickets\/[^/]+\/edit$/)) {
+    return postOnly(ticketSubmissionLimiter)(req, res, next);
+  }
+  if (path.match(/^\/admin\/lottery\/[^/]+\/result$/) ||
+      path.match(/^\/admin\/special\/lottery\/[^/]+\/result$/)) {
+    return postOnly(adminResultLimiter)(req, res, next);
+  }
   next();
 });
 

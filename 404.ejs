@@ -1,7 +1,9 @@
 <%- include('partial-header', { title: 'Not Found' }) %>
 
-<h1><%= t('notFoundTitle') %></h1>
-<p class="subtitle"><%= t('notFoundText') %></p>
-<a class="btn" href="/"><%= t('notFoundBackHome') %></a>
+<div class="container" style="text-align:center; padding: 48px 16px; max-width: 520px; margin: 0 auto;">
+  <h1 style="font-size: 3.5rem; margin: 0 0 12px; color: #111; font-weight: 800;">404</h1>
+  <p class="subtitle" style="font-size: 1.1rem; margin-bottom: 28px;"><%= t('notFoundText') %></p>
+  <a class="btn" href="/" style="display:inline-block;"><%= t('notFoundBackHome') %></a>
+</div>
 
 <%- include('partial-footer') %>

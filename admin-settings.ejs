@@ -57,4 +57,19 @@
 <p class="subtitle">Download everything on this site — lotteries, results, and ticket purchase records — as a single file you can keep for yourself.</p>
 <a class="btn secondary" href="/admin/settings/backup">Download Backup</a>
 
+<script>
+  (function() {
+    document.querySelectorAll('form').forEach(function(form) {
+      form.addEventListener('submit', function() {
+        var btn = form.querySelector('button[type="submit"]');
+        if (!btn || btn.disabled) return;
+        var text = btn.textContent.trim().toLowerCase();
+        if (text.indexOf('save') === -1 && text.indexOf('add') === -1 && text.indexOf('change') === -1 && text.indexOf('update') === -1) return;
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent.trim();
+        btn.textContent = 'Saving...';
+      });
+    });
+  })();
+</script>
 <%- include('partial-footer') %>
