@@ -1,7 +1,7 @@
 /*
  * RATE LIMITING & CSP CHANGES
  * - express-rate-limit protects login, ticket submission, and admin result endpoints.
- * - Login pages (/login, /admin/login): 5 attempts per 15 min per IP.
+ * - Login pages (/login, /admin/login): 5 attempts per 15 min per IP (POST only).
  * - Ticket submissions: 20 per 15 min per user ID.
  * - Admin result updates: 10 per 15 min per admin.
  * - Content Security Policy is now enforced (was previously disabled).
@@ -91,7 +91,11 @@ app.get('/health', async (req, res) => {
   res.status(result.ok ? 200 : 503).json({ status: result.ok ? 'ok' : 'degraded', database: result.database });
 });
 
-// Rate limiters
+// ============================================================
+// RATE LIMITERS — MUST be defined and applied BEFORE routes
+// so they actually block requests instead of running after.
+// ============================================================
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5,
@@ -125,14 +129,28 @@ const adminResultLimiter = rateLimit({
   }
 });
 
-// Apply rate limiters
-app.use('/admin/login', loginLimiter);
-app.use('/login', loginLimiter);
+// Helper: only apply rate limiter to POST requests.
+// GET requests (showing the login form) should not count as attempts.
+function postOnly(limiter) {
+  return (req, res, next) => {
+    if (req.method === 'POST') return limiter(req, res, next);
+    next();
+  };
+}
+
+// Apply rate limiters BEFORE routes so they actually block.
+// Only POST requests count as login attempts.
+app.use('/admin/login', postOnly(loginLimiter));
+app.use('/login', postOnly(loginLimiter));
 app.use('/lottery/:id/purchases-multi', ticketLimiter);
 app.use('/lottery/:id/purchases/:number', ticketLimiter);
 app.use('/account/tickets/:id/edit', ticketLimiter);
 app.use('/admin/lottery/:id/result', adminResultLimiter);
 app.use('/admin/special/lottery/:id/result', adminResultLimiter);
+
+// ============================================================
+// ROUTES — mounted AFTER rate limiters so limiters run first
+// ============================================================
 
 const sessionPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined, max: 5 }) : null;
 const sessionOptions = {
