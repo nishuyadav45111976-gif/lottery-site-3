@@ -75,6 +75,24 @@ header.site-header .container {
   justify-content: space-between;
 }
 
+.special-header-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 10px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.special-header-link:hover { background: rgba(255,255,255,0.26); }
+.special-header-link span { opacity: 0.85; }
+
 header.site-header a.logo {
   color: #ffffff;
   font-weight: 800;
