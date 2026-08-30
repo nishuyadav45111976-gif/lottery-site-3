@@ -55,6 +55,7 @@
   <% if (lotteries.length > 5) { %>
     <input type="text" id="lotterySearch" class="search-box" placeholder="<%= t('searchPlaceholder') %>" onkeyup="filterLotteryTable()" style="margin-top:24px;" />
   <% } %>
+  <div class="table-scroll-wrap">
   <table id="lotteryTable">
     <thead>
       <tr>
@@ -89,6 +90,7 @@
       <% }); %>
     </tbody>
   </table>
+  </div>
   <div id="noSearchResults" class="empty-state" style="display:none;"><%= t('noSearchResults') %></div>
 <% } %>
 
