@@ -1,0 +1,48 @@
+<%- include('partial-header', { title: lottery.name + ' Results (Special)' }) %>
+
+<a class="back-link" href="/">&larr; All Results</a>
+<h1><%= lottery.name %> <span class="special-chip" style="vertical-align:middle;">Special</span></h1>
+<div class="share-row" style="display:flex; gap:8px; margin:-4px 0 10px;">
+  <a class="btn secondary" style="padding:4px 10px; font-size:0.78rem;" target="_blank" rel="noopener"
+     href="https://wa.me/?text=<%= encodeURIComponent(lottery.name + ' results: ' + currentUrl) %>">📲 WhatsApp</a>
+  <a class="btn secondary" style="padding:4px 10px; font-size:0.78rem;" target="_blank" rel="noopener"
+     href="https://t.me/share/url?url=<%= encodeURIComponent(currentUrl) %>&text=<%= encodeURIComponent(lottery.name + ' results') %>">✈️ Telegram</a>
+</div>
+<p class="subtitle">Special Lottery — 3-digit results (000–999).</p>
+
+<% if (results.length === 0) { %>
+  <div class="empty-state">No results yet for this lottery.</div>
+<% } else { %>
+  <div class="table-scroll-wrap">
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Result</th></tr>
+    </thead>
+    <tbody>
+      <% results.forEach(function(r) { %>
+        <tr>
+          <td><%= r.date %></td>
+          <td class="result-cell"><%= r.resultText %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<script>
+  // If the person leaves this tab/app and comes back later, quietly refresh
+  // so they see the latest result instead of a stale page from before.
+  (function () {
+    var wasHidden = false;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (document.visibilityState === 'visible' && wasHidden) {
+        location.reload();
+      }
+    });
+  })();
+</script>
+
+<%- include('partial-footer') %>

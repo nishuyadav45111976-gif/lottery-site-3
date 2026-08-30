@@ -81,6 +81,44 @@
   </header>
   <% } %>
 
+  <% if (typeof isHomePage !== 'undefined' && isHomePage && typeof specialLotteries !== 'undefined' && specialLotteries.length > 0) { %>
+    <div class="special-section">
+      <p class="special-section-heading">🎰 Special Lottery <span style="font-size:0.7rem; font-weight:600; opacity:0.7;">000–999</span></p>
+      <p class="special-section-sub">A separate set of lotteries with 3-digit numbers.</p>
+
+      <% if (starredSpecialLottery) { %>
+        <div class="featured-box special">
+          <div class="featured-label">⭐ Featured Special</div>
+          <div class="featured-name"><%= starredSpecialLottery.name %></div>
+          <% if (starredSpecialLottery.drawTime) { %><div class="featured-time"><%= starredSpecialLottery.drawTime %></div><% } %>
+          <div class="featured-result <%= starredSpecialLottery.latestResult ? '' : 'pending' %>">
+            <%= starredSpecialLottery.latestResult ? starredSpecialLottery.latestResult.resultText : 'Result pending' %>
+            <% if (starredSpecialLottery.latestResult) { %><span class="featured-date"><%= starredSpecialLottery.latestResult.date %></span><% } else if (starredSpecialLottery.upcoming) { %>
+              <span class="featured-date"><%= starredSpecialLottery.upcoming.pendingResult ? '' : 'Today · ' + starredSpecialLottery.upcoming.remainingText + ' left' %></span>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="card-grid special-grid">
+        <% specialLotteries.forEach(function(lottery) { %>
+          <a class="lottery-card special-card" href="/special/<%= lottery.slug %>">
+            <div><span class="special-chip">Special</span></div>
+            <div class="name"><%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %></div>
+            <% if (lottery.latestResult) { %>
+              <div class="result"><%= lottery.latestResult.resultText %></div>
+              <div class="date">Latest · <%= lottery.latestResult.date %></div>
+            <% } else if (lottery.upcoming) { %>
+              <div class="no-result"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
+            <% } else { %>
+              <div class="no-result">No result yet</div>
+            <% } %>
+          </a>
+        <% }); %>
+      </div>
+    </div>
+  <% } %>
+
   <div id="navProgressBar" aria-hidden="true"></div>
   <script>
     // A thin bar across the top while a new page is loading, so navigating

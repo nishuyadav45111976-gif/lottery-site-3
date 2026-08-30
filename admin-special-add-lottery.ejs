@@ -1,0 +1,21 @@
+<%- include('partial-header', { title: 'Add Special Lottery' , isAdminPage: true }) %>
+
+<a class="back-link" href="/admin/special">&larr; Special Lottery</a>
+<h1>Add New Special Lottery</h1>
+<p class="subtitle">Numbers 000–999. This is a separate list from your normal lotteries.</p>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/special/lottery/new"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="name">Lottery Name</label>
+  <input type="text" id="name" name="name" placeholder="e.g. Diamond King" autofocus required />
+
+  <label for="drawTime">Draw Time (optional — 24-hour format is saved)</label>
+  <input type="text" id="drawTime" name="drawTime" placeholder="e.g. 08:00 or 05:00 AM" />
+
+  <button type="submit">Add Special Lottery</button>
+</form>
+
+<%- include('partial-footer') %>

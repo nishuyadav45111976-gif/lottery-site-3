@@ -1153,4 +1153,314 @@ router.post('/users/:id/password', (req, res) => {
   redirectWithFlash(res, '/admin/users/existing', `Password reset for ${user.name}`);
 });
 
+// ==================== SPECIAL LOTTERY (000-999 games) ====================
+// A fully separate section from the normal 00-99 lotteries above: its own
+// list of lotteries, its own results, its own purchases/round-reset, and
+// its own star (manual or automatic, same rules as the normal one). Ticket
+// entry here leans on the Quick Ticket Entry box rather than a 1000-box tap
+// grid — the same parser as the normal admin quick-entry, told to expect
+// 3-digit numbers.
+
+function getSpecialLotteriesWithLatest() {
+  const lotteries = db.get('specialLotteries').value() || [];
+  const allPurchases = db.get('specialPurchases').value() || [];
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const todayParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const todayStr = `${todayParts.find(p => p.type === 'year').value}-${todayParts.find(p => p.type === 'month').value}-${todayParts.find(p => p.type === 'day').value}`;
+  return lotteries.map((lottery) => {
+    const results = db
+      .get('specialResults')
+      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt)
+      .sortBy('date')
+      .reverse()
+      .value();
+    const latestResult = results[0] || null;
+    const updatedToday = !!(latestResult && latestResult.date === todayStr && latestResult.published !== false);
+    const lotteryPurchases = allPurchases.filter((p) => p.lotteryId === lottery.id);
+    const purchaseTotals = lotteryPurchases.reduce(
+      (acc, p) => ({ tickets: acc.tickets + (Number(p.tickets) || 0), amount: acc.amount + (Number(p.amount) || 0) }),
+      { tickets: 0, amount: 0 }
+    );
+    return { ...lottery, latestResult, updatedToday, purchaseTotals, entryStatus: lotteryEntryStatus(lottery) };
+  });
+}
+
+function activeSpecialResultsFor(lotteryId) {
+  return db.get('specialResults').filter((r) => r.lotteryId === lotteryId && !r.deletedAt).sortBy('date').reverse().value();
+}
+
+function trashedSpecialResultsFor(lotteryId) {
+  return db.get('specialResults').filter((r) => r.lotteryId === lotteryId && !!r.deletedAt).sortBy('deletedAt').reverse().value();
+}
+
+router.get('/special', async (req, res) => {
+  await db.applyAutoSpecialStar().catch(() => {});
+  const lotteries = getSpecialLotteriesWithLatest();
+  const purchases = db.allSpecialPurchasesEverMade();
+  const totalTickets = purchases.reduce((s, p) => s + (Number(p.tickets) || 0), 0);
+  const totalAmount = purchases.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  res.render('admin-special-dashboard', {
+    lotteries, error: null,
+    starMode: db.get('settings.specialStarMode').value() || 'manual',
+    summary: { lotteries: lotteries.length, totalTickets, totalAmount },
+  });
+});
+
+router.post('/special/star-mode', (req, res) => {
+  const mode = req.body.mode === 'auto' ? 'auto' : 'manual';
+  db.set('settings.specialStarMode', mode).write();
+  logAction(req, 'Special star mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
+  if (mode === 'auto') {
+    db.applyAutoSpecialStar().catch(() => {}).finally(() => {
+      redirectWithFlash(res, '/admin/special', 'Automatic star mode enabled.');
+    });
+  } else {
+    redirectWithFlash(res, '/admin/special', 'Switched back to manual star selection.');
+  }
+});
+
+router.post('/special/lottery/:id/star', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+  if (db.get('settings.specialStarMode').value() === 'auto') {
+    return redirectWithFlash(res, '/admin/special', 'Switch to Manual star mode first to pick a lottery by hand.');
+  }
+  if (lottery.starred) {
+    db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: false }).write();
+    logAction(req, 'Unstarred special lottery', lottery.name);
+  } else {
+    (db.get('specialLotteries').value() || []).forEach((l) => {
+      db.get('specialLotteries').find({ id: l.id }).assign({ starred: false }).write();
+    });
+    db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: true }).write();
+    logAction(req, 'Starred special lottery', lottery.name);
+  }
+  redirectWithFlash(res, '/admin/special', 'Updated');
+});
+
+router.get('/special/lottery/new', (req, res) => {
+  res.render('admin-special-add-lottery', { error: null });
+});
+
+router.post('/special/lottery/new', (req, res) => {
+  const { name, drawTime } = req.body;
+  if (!name || !name.trim()) return res.render('admin-special-add-lottery', { error: 'Please enter a lottery name.' });
+  const normalizedDrawTime = normalizeDrawTime(drawTime);
+  if (normalizedDrawTime === null) return res.render('admin-special-add-lottery', { error: 'Please enter a valid draw time, such as 08:00, 8:00 AM, or 23:07.' });
+
+  const slug = slugify(name);
+  const existing = db.get('specialLotteries').find({ slug }).value();
+  if (existing) return res.render('admin-special-add-lottery', { error: 'A special lottery with a very similar name already exists.' });
+
+  db.get('specialLotteries').push({
+    id: makeId(), name: name.trim(), slug, drawTime: normalizedDrawTime, starred: false, createdAt: new Date().toISOString(),
+  }).write();
+
+  logAction(req, 'Special lottery added', name.trim());
+  redirectWithFlash(res, '/admin/special', 'Special lottery added');
+});
+
+router.get('/special/lottery/:id/edit', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+  res.render('admin-special-edit-lottery', { lottery, error: null });
+});
+
+router.post('/special/lottery/:id/edit', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+  const { name, drawTime } = req.body;
+  if (!name || !name.trim()) return res.render('admin-special-edit-lottery', { lottery, error: 'Please enter a lottery name.' });
+  const normalizedDrawTime = normalizeDrawTime(drawTime);
+  if (normalizedDrawTime === null) return res.render('admin-special-edit-lottery', { lottery, error: 'Please enter a valid draw time, such as 08:00, 8:00 AM, or 23:07.' });
+
+  db.get('specialLotteries').find({ id: lottery.id }).assign({ name: name.trim(), drawTime: normalizedDrawTime }).write();
+  logAction(req, 'Special lottery updated', `${lottery.name} → ${name.trim()}`);
+  redirectWithFlash(res, '/admin/special', 'Special lottery updated');
+});
+
+router.post('/special/lottery/:id/delete', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+  db.get('specialLotteries').remove({ id: lottery.id }).write();
+  db.get('specialResults').remove({ lotteryId: lottery.id }).write();
+  db.get('specialPurchases').remove({ lotteryId: lottery.id }).write();
+  db.get('specialPurchaseHistory').remove({ lotteryId: lottery.id }).write();
+  logAction(req, 'Special lottery deleted', lottery.name);
+  redirectWithFlash(res, '/admin/special', 'Special lottery and all its results/purchases deleted');
+});
+
+router.get('/special/lottery/:id/result', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const nowParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const todayStr = `${nowParts.find((p) => p.type === 'year').value}-${nowParts.find((p) => p.type === 'month').value}-${nowParts.find((p) => p.type === 'day').value}`;
+
+  const results = activeSpecialResultsFor(lottery.id).map((r) => {
+    if (r.published === false && r.scheduledFor) {
+      const minutesUntil = Math.max(0, Math.round((new Date(r.scheduledFor).getTime() - Date.now()) / 60000));
+      const timeDisplay = new Intl.DateTimeFormat('en-IN', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(r.scheduledFor));
+      return { ...r, scheduledCountdown: `goes live at ${timeDisplay} (in ${minutesUntil} minute${minutesUntil === 1 ? '' : 's'})` };
+    }
+    return r;
+  });
+
+  res.render('admin-special-update-result', { lottery, results, trashedResults: trashedSpecialResultsFor(lottery.id), error: null, todayStr });
+});
+
+router.post('/special/lottery/:id/result', async (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const { date, resultText, publishMode } = req.body;
+  const dateStr = String(date || ''); const parsedDate = new Date(`${dateStr}T00:00:00Z`);
+  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === dateStr;
+  if (!dateOk || !resultText || !resultText.trim()) {
+    return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'Please fill in both the date and the result.' });
+  }
+
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const nowParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const todayStr = `${nowParts.find(p => p.type === 'year').value}-${nowParts.find(p => p.type === 'month').value}-${nowParts.find(p => p.type === 'day').value}`;
+  if (dateStr > todayStr) return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'A result date cannot be in the future.' });
+
+  if (!isValidResultText(resultText)) {
+    return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'Result should only contain numbers — please check for typos.' });
+  }
+
+  let scheduledFor = null;
+  let published = true;
+  if (publishMode === 'schedule' && date === todayStr) {
+    const iso = computeScheduledIso(date, lottery.drawTime, tz);
+    if (iso && new Date(iso).getTime() > Date.now()) { scheduledFor = iso; published = false; }
+  }
+
+  const existing = db.get('specialResults').find((r) => r.lotteryId === lottery.id && r.date === date && !r.deletedAt).value();
+  let savedResult;
+  if (existing) {
+    db.get('specialResults').find({ id: existing.id }).assign({ resultText: resultText.trim(), updatedAt: new Date().toISOString(), scheduledFor, published }).write();
+    savedResult = { ...existing, resultText: resultText.trim(), date, scheduledFor, published };
+  } else {
+    savedResult = { id: makeId(), lotteryId: lottery.id, date, resultText: resultText.trim(), updatedAt: new Date().toISOString(), scheduledFor, published };
+    db.get('specialResults').push(savedResult).write();
+  }
+
+  if (published) await db.startNewSpecialRound(lottery.id);
+
+  logAction(req, 'Special result saved', `${lottery.name} — ${date}: ${resultText.trim()}${scheduledFor ? ` (scheduled for ${scheduledFor})` : ''}`);
+  redirectWithFlash(res, `/admin/special/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
+});
+
+router.post('/special/lottery/:id/result/:resultId/delete', (req, res) => {
+  const result = db.get('specialResults').find({ id: req.params.resultId }).value();
+  db.get('specialResults').find({ id: req.params.resultId }).assign({ deletedAt: new Date().toISOString() }).write();
+  logAction(req, 'Special result deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
+  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Result deleted (restore it below if that was a mistake)');
+});
+
+router.post('/special/lottery/:id/result/:resultId/restore', (req, res) => {
+  const result = db.get('specialResults').find({ id: req.params.resultId }).value();
+  db.get('specialResults').find({ id: req.params.resultId }).assign({ deletedAt: null }).write();
+  logAction(req, 'Special result restored', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
+  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Result restored');
+});
+
+router.post('/special/lottery/:id/result/:resultId/purge', (req, res) => {
+  const result = db.get('specialResults').find({ id: req.params.resultId }).value();
+  db.get('specialResults').remove({ id: req.params.resultId }).write();
+  logAction(req, 'Special result permanently deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
+  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Permanently deleted');
+});
+
+// Ticket purchases for a special lottery: Quick Ticket Entry (3-digit
+// numbers) plus a simple per-number summary table of the current round —
+// no 1000-box tap grid.
+router.get('/special/lottery/:id/purchases', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const currentPurchases = db.get('specialPurchases').filter({ lotteryId: lottery.id }).value() || [];
+  const byNumber = {};
+  currentPurchases.forEach((p) => {
+    const n = String(p.number).padStart(3, '0');
+    if (!byNumber[n]) byNumber[n] = { tickets: 0, amount: 0 };
+    byNumber[n].tickets += Number(p.tickets) || 0;
+    byNumber[n].amount += Number(p.amount) || 0;
+  });
+  const rows = Object.keys(byNumber).sort().map((n) => ({ number: n, ...byNumber[n] }));
+  const totals = rows.reduce((acc, r) => ({ tickets: acc.tickets + r.tickets, amount: acc.amount + r.amount }), { tickets: 0, amount: 0 });
+
+  res.render('admin-special-purchases', {
+    lottery, rows, totals,
+    allSpecialLotteries: db.get('specialLotteries').value() || [],
+  });
+});
+
+router.get('/special/lottery/:id/results/export.csv', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const results = activeSpecialResultsFor(lottery.id).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const lines = ['Date,Result'];
+  results.forEach((r) => { lines.push([csvField(r.date), csvField(r.resultText)].join(',')); });
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${lottery.slug}-special-results-${dateStamp}.csv"`);
+  res.send(lines.join('\n'));
+});
+
+router.get('/special/lottery/:id/purchases/export.csv', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const entries = db.get('specialPurchases').filter({ lotteryId: lottery.id }).sortBy(['number', 'createdAt']).value();
+  const lines = ['Number,Buyer Name,Tickets,Amount,Logged At'];
+  entries.forEach((e) => {
+    lines.push([csvField(e.number), csvField(e.buyerName), csvField(e.tickets), csvField(e.amount), csvField(e.createdAt)].join(','));
+  });
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${lottery.slug}-special-purchases-${dateStamp}.csv"`);
+  res.send(lines.join('\n'));
+});
+
+router.post('/special/quick-purchase', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.body.lotteryId }).value();
+  const backPath = lottery ? `/admin/special/lottery/${encodeURIComponent(lottery.id)}/purchases` : '/admin/special';
+
+  if (!lottery) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Could not find that special lottery — check the name and try again.'));
+  }
+
+  let numbers = req.body.numbers;
+  if (!Array.isArray(numbers)) numbers = numbers ? [numbers] : [];
+  numbers = [...new Set(numbers)].filter((n) => /^\d{3}$/.test(n));
+
+  const amountNum = parseFloat(req.body.amount);
+
+  if (!numbers.length || !Number.isFinite(amountNum) || amountNum < 0 || amountNum > 10000000) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Quick entry failed — check the numbers and amount and try again.'));
+  }
+  if (numbers.length > 100) {
+    return res.redirect(backPath + '?flash=' + encodeURIComponent('Too many numbers in one quick entry (max 100).'));
+  }
+
+  const now = new Date().toISOString();
+  const purchasesChain = db.get('specialPurchases');
+  numbers.forEach((number) => {
+    purchasesChain.push({
+      id: makeId(), lotteryId: lottery.id, number, userId: null, buyerName: 'Internal Entry',
+      tickets: 1, amount: amountNum, createdAt: now,
+    });
+  });
+  purchasesChain.write();
+  logAction(req, 'Special quick ticket entry', `${numbers.length} number(s) × ${amountNum} added to ${lottery.name}`);
+
+  return res.redirect(backPath + '?flash=' + encodeURIComponent(`${numbers.length} number${numbers.length === 1 ? '' : 's'} added to ${lottery.name}.`));
+});
+
 module.exports = router;

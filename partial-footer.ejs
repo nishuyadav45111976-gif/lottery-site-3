@@ -1,7 +1,7 @@
   </main>
 
   <% if (typeof isAdminNavPage !== 'undefined' && isAdminNavPage) { %>
-    <a class="fab" href="/admin/lottery/new" aria-label="Add new lottery">
+    <a class="fab" href="<%= (typeof currentUrl !== 'undefined' && currentUrl.includes('/admin/special')) ? '/admin/special/lottery/new' : '/admin/lottery/new' %>" aria-label="Add new lottery">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3EADF" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </a>
     <nav class="bottom-nav">

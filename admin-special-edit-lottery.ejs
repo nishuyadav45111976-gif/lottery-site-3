@@ -1,0 +1,22 @@
+<%- include('partial-header', { title: 'Edit ' + lottery.name , isAdminPage: true }) %>
+
+<a class="back-link" href="/admin/special">&larr; Special Lottery</a>
+<h1>Edit Special Lottery</h1>
+
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<form class="form-box" method="POST" action="/admin/special/lottery/<%= lottery.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label for="name">Lottery Name</label>
+  <input type="text" id="name" name="name" value="<%= lottery.name %>" required />
+
+  <label for="drawTime">Draw Time (optional — 24-hour format is saved)</label>
+  <input type="text" id="drawTime" name="drawTime" value="<%= lottery.drawTime || '' %>" placeholder="e.g. 08:00 or 05:00 AM" />
+
+  <button type="submit">Save Changes</button>
+</form>
+
+<p class="subtitle" style="margin-top:16px;">Want to star this lottery? Use the ☆ star button next to it on the Special Lottery dashboard instead.</p>
+
+<%- include('partial-footer') %>

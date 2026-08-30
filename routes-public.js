@@ -147,6 +147,24 @@ router.get('/', async (req, res) => {
   const starredLottery = lotteriesWithResults.find((l) => l.starred) || null;
   const mainLotteries = lotteriesWithResults.filter((l) => l.isMain).slice(0, 4);
 
+  await db.applyAutoSpecialStar().catch(() => {});
+  const specialLotteries = (db.get('specialLotteries').value() || []).map((lottery) => {
+    const results = db
+      .get('specialResults')
+      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
+      .sortBy('date')
+      .reverse()
+      .value();
+    const resultState = publicResultState(lottery, results);
+    return {
+      ...lottery,
+      latestResult: resultState.latestResult,
+      previousResult: resultState.previousResult,
+      upcoming: resultState.upcoming,
+    };
+  });
+  const starredSpecialLottery = specialLotteries.find((l) => l.starred) || null;
+
   // Most recent moment any result was entered or edited, for a "last updated" note
   const allResultsForTimestamp = activeResults();
   let lastUpdatedIso = null;
@@ -166,7 +184,7 @@ router.get('/', async (req, res) => {
     return { date, cells };
   });
 
-  res.render('index', { lotteries: lotteriesWithResults, starredLottery, mainLotteries, recentRows, lastUpdated });
+  res.render('index', { lotteries: lotteriesWithResults, starredLottery, mainLotteries, recentRows, lastUpdated, specialLotteries, starredSpecialLottery, isHomePage: true });
 });
 
 // Single lottery page: full result history
@@ -186,6 +204,25 @@ router.get('/lottery/:slug', async (req, res) => {
     .value();
 
   res.render('lottery', { lottery, results });
+});
+
+// Same as /lottery/:slug, for Special Lotteries (000-999 games).
+router.get('/special/:slug', async (req, res) => {
+  await trackVisit(req);
+  const lottery = db.get('specialLotteries').find({ slug: req.params.slug }).value();
+
+  if (!lottery) {
+    return res.status(404).render('404');
+  }
+
+  const results = db
+    .get('specialResults')
+    .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
+    .sortBy('date')
+    .reverse()
+    .value();
+
+  res.render('special-lottery', { lottery, results });
 });
 
 // Combined history grid: every lottery as a column, every date as a row.

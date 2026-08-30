@@ -1,0 +1,87 @@
+<%- include('partial-header', { title: 'Special Lottery' , isAdminPage: true }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1 class="greeting">🎰 Special Lottery <span class="tag tag-soft">000–999</span></h1>
+<p class="subtitle">A separate list from your normal lotteries — its own results, purchases, and star.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<div class="quick-actions">
+  <a class="quick" href="/admin/special/lottery/new"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B4A32" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div><span>New Special Lottery</span></a>
+</div>
+
+<div class="card" id="starModeCard">
+  <h2>⭐ Star Mode</h2>
+  <p class="subtitle">Manual: you pick the starred special lottery yourself. Automatic: the star follows whichever one is closest to its draw, and stays on the one that just published for 15 minutes.</p>
+  <div class="mode-switch" style="margin-top:10px;">
+    <form method="POST" action="/admin/special/star-mode" style="display:contents;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" name="mode" value="manual" class="<%= (typeof starMode === 'undefined' || starMode !== 'auto') ? 'active' : '' %>">Manual</button>
+      <button type="submit" name="mode" value="auto" class="<%= (typeof starMode !== 'undefined' && starMode === 'auto') ? 'active' : '' %>">Automatic</button>
+    </form>
+  </div>
+</div>
+
+<% if (typeof summary !== 'undefined') { %>
+<div class="card">
+  <div class="card-stats">
+    <div><div class="card-stat-value"><%= summary.lotteries %></div><div class="card-stat-label">Special lotteries</div></div>
+    <div><div class="card-stat-value"><%= summary.totalTickets %></div><div class="card-stat-label">Tickets (all-time)</div></div>
+    <div><div class="card-stat-value"><%= summary.totalAmount %></div><div class="card-stat-label">Pool total (all-time)</div></div>
+  </div>
+</div>
+<% } %>
+
+<div class="section-head"><h2>Special lotteries</h2></div>
+
+<% if (lotteries.length === 0) { %>
+  <div class="empty-state">No special lotteries yet. Tap "New Special Lottery" above to add your first one.</div>
+<% } else { %>
+  <% lotteries.forEach(function(lottery) { %>
+    <% var isOpen = !(lottery.entryStatus && lottery.entryStatus.locked); %>
+    <article class="admin-lottery-card <%= isOpen ? '' : 'closed' %>">
+      <div class="card-top">
+        <div class="lottery-avatar" style="background:#6B4A32;"><%= lottery.name.slice(0,2).toUpperCase() %></div>
+        <div class="card-title">
+          <p class="lottery-name"><%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %></p>
+          <div class="status">
+            <span class="live-dot <%= isOpen ? '' : 'off' %>"></span>
+            <%= isOpen ? 'Open' : 'Closed' %><% if (lottery.entryStatus && lottery.entryStatus.cutoff && lottery.entryStatus.cutoff !== '—') { %> · <%= isOpen ? 'closes' : 'opens' %> <%= lottery.entryStatus.cutoff %><% } %>
+          </div>
+        </div>
+        <button class="more-btn" onclick="openAdminSheet('special-<%= lottery.id %>')" aria-label="Lottery actions">
+          <span class="more-dot"></span><span class="more-dot"></span><span class="more-dot"></span>
+        </button>
+      </div>
+      <div class="divider"></div>
+      <div class="card-stats">
+        <div><div class="card-stat-value"><%= lottery.latestResult ? lottery.latestResult.resultText : '—' %></div><div class="card-stat-label">Latest Result</div></div>
+        <div><div class="card-stat-value"><%= lottery.purchaseTotals.tickets %></div><div class="card-stat-label">Tickets sold</div></div>
+        <div><div class="card-stat-value"><%= lottery.purchaseTotals.amount %></div><div class="card-stat-label">Pool Total</div></div>
+      </div>
+      <div class="tags">
+        <span class="tag <%= isOpen ? 'tag-success' : 'tag-soft' %>"><%= isOpen ? '● Live' : 'Closed' %></span>
+        <% if (lottery.updatedToday) { %><span class="tag tag-success">✓ Updated today</span><% } %>
+      </div>
+    </article>
+
+    <template id="sheetTemplate-special-<%= lottery.id %>" data-title="<%= lottery.name %>">
+      <a class="sheet-item" href="/admin/special/lottery/<%= lottery.id %>/result"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Update Result</span></a>
+      <a class="sheet-item" href="/admin/special/lottery/<%= lottery.id %>/purchases"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg></span><span class="sheet-label">Ticket Purchases</span></a>
+      <a class="sheet-item" href="/admin/special/lottery/<%= lottery.id %>/edit"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Edit Lottery</span></a>
+      <% if (typeof starMode !== 'undefined' && starMode === 'auto') { %>
+      <div class="sheet-item" style="box-shadow:none; opacity:0.6;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label">Star is Automatic<% if (lottery.starred) { %> (currently on)<% } %></span></div>
+      <% } else { %>
+      <form class="sheet-item-form" method="POST" action="/admin/special/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label"><%= lottery.starred ? 'Remove Star' : 'Star This Lottery' %></span></button></form>
+      <% } %>
+      <form class="sheet-item-form" method="POST" action="/admin/special/lottery/<%= lottery.id %>/delete" onsubmit="return confirm('Delete this special lottery and all its results/purchases? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item danger" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span><span class="sheet-label">Delete Lottery</span></button></form>
+    </template>
+  <% }); %>
+<% } %>
+
+<%- include('partial-footer') %>

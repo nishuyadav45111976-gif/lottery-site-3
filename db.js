@@ -9,6 +9,7 @@ const { hashPassword } = require('./utils');
 
 const defaults = {
   lotteries: [], results: [], purchases: [], purchaseHistory: [], users: [], watchedNumbers: [],
+  specialLotteries: [], specialResults: [], specialPurchases: [], specialPurchaseHistory: [],
   notifications: [], settings: {
     siteName: 'Haryana Results',
     disclaimerText: 'This site provides lottery results for informational purposes only. Results are compiled from publicly available sources. We do not sell tickets, accept payments, or facilitate any real-money gambling. Please verify results with the official source before acting on them.',
@@ -16,6 +17,7 @@ const defaults = {
     aboutText: 'This site publishes daily lottery results for informational purposes. For questions, corrections, or support, please use the contact details shown at the bottom of the site.',
     faqText: 'When do results get posted?\nResults are posted as soon as possible after each draw closes, and sometimes automatically at the exact draw time if scheduled ahead of time by an admin.\n\nAre these official results?\nResults shown here are compiled for informational purposes. Please verify with the official source before acting on them.\n\nDo you sell tickets or accept payments?\nNo. This site only displays results — it does not sell tickets or handle real-money gambling.\n\nHow often is this page updated?\nThe page automatically refreshes with the latest result when you return to it after being away.',
     starMode: 'manual',
+    specialStarMode: 'manual',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };
@@ -452,6 +454,20 @@ async function publishDueScheduledResults() {
   if (due.length) await flushState();
 }
 
+// Same as above, for Special Lotteries (000-999 games) — a separate results
+// list, so a separate check, but otherwise identical behavior.
+async function publishDueScheduledSpecialResults() {
+  const nowIso = new Date().toISOString();
+  const due = (dbGet('specialResults').value() || []).filter(
+    (r) => r.published === false && r.scheduledFor && r.scheduledFor <= nowIso && !r.deletedAt
+  );
+  for (const result of due) {
+    dbGet('specialResults').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
+    await startNewSpecialRound(result.lotteryId);
+  }
+  if (due.length) await flushState();
+}
+
 function parseDrawMinutesForStar(drawTime) {
   if (!drawTime) return null;
   const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
@@ -480,17 +496,19 @@ function zonedNowForStar(timeZone) {
   return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute') };
 }
 
-// Checked on a short interval from server.js, same as the scheduled-publish
-// check above — only does anything when settings.starMode is 'auto'.
-// Whichever lottery most recently published today's result stays starred
-// for 15 minutes; after that (or if nothing published recently), the star
-// moves to whichever lottery's draw time is coming up soonest, wrapping to
+// Shared engine behind both applyAutoStar (normal lotteries) and
+// applyAutoSpecialStar (Special Lotteries) — same algorithm, pointed at
+// whichever pair of collections/settings key it's given. Only does
+// anything when the relevant star-mode setting is 'auto'. Whichever
+// lottery most recently published today's result stays starred for 15
+// minutes; after that (or if nothing published recently), the star moves
+// to whichever lottery's draw time is coming up soonest, wrapping to
 // tomorrow once every lottery has already drawn for today.
-async function applyAutoStar() {
-  const mode = dbGet('settings.starMode').value();
+async function runAutoStar(lotteriesKey, resultsKey, starModeSettingPath) {
+  const mode = dbGet(starModeSettingPath).value();
   if (mode !== 'auto') return;
 
-  const lotteries = dbGet('lotteries').value() || [];
+  const lotteries = dbGet(lotteriesKey).value() || [];
   if (!lotteries.length) return;
 
   const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
@@ -498,7 +516,7 @@ async function applyAutoStar() {
   const today = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
   const nowMinutes = now.hour * 60 + now.minute;
   const nowMs = Date.now();
-  const results = dbGet('results').value() || [];
+  const results = dbGet(resultsKey).value() || [];
 
   let recent = null;
   lotteries.forEach((lottery) => {
@@ -533,11 +551,14 @@ async function applyAutoStar() {
   lotteries.forEach((l) => {
     const shouldBeStarred = l.id === winnerId;
     if (!!l.starred !== shouldBeStarred) {
-      dbGet('lotteries').find({ id: l.id }).assign({ starred: shouldBeStarred }).write();
+      dbGet(lotteriesKey).find({ id: l.id }).assign({ starred: shouldBeStarred }).write();
     }
   });
   await flushState();
 }
+
+async function applyAutoStar() { return runAutoStar('lotteries', 'results', 'settings.starMode'); }
+async function applyAutoSpecialStar() { return runAutoStar('specialLotteries', 'specialResults', 'settings.specialStarMode'); }
 
 // A published result closes out that lottery's current betting round.
 // Rather than just marking a "since when" cutoff and filtering by it on every
@@ -560,11 +581,29 @@ async function startNewRound(lotteryId) {
   await persistState(true);
 }
 
+// Same round-reset behavior as startNewRound, for Special Lotteries.
+async function startNewSpecialRound(lotteryId) {
+  const now = new Date().toISOString();
+  const toArchive = dbGet('specialPurchases').filter({ lotteryId }).value() || [];
+  if (toArchive.length) {
+    dbGet('specialPurchases').remove({ lotteryId });
+    const historyChain = dbGet('specialPurchaseHistory');
+    toArchive.forEach((p) => historyChain.push({ ...p, roundEndedAt: now }));
+  }
+  dbGet('specialLotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: now });
+  await persistState(true);
+}
+
 // Every purchase ever made for a lottery/user — current round plus every
 // past round already archived by startNewRound. Used for all-time totals
 // (Reports/Overview) and full purchase history views.
 function allPurchasesEverMade() {
   return (dbGet('purchases').value() || []).concat(dbGet('purchaseHistory').value() || []);
+}
+
+// Same as allPurchasesEverMade, for Special Lotteries.
+function allSpecialPurchasesEverMade() {
+  return (dbGet('specialPurchases').value() || []).concat(dbGet('specialPurchaseHistory').value() || []);
 }
 
 async function healthCheck() {
@@ -582,7 +621,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, applyAutoStar, startNewRound, allPurchasesEverMade };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, publishDueScheduledSpecialResults, applyAutoStar, applyAutoSpecialStar, startNewRound, startNewSpecialRound, allPurchasesEverMade, allSpecialPurchasesEverMade };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');

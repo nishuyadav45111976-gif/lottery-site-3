@@ -151,12 +151,14 @@ process.on('unhandledRejection', (reason) => {
 // no admin needs to be online at that exact moment for it to go live.
 setInterval(() => {
   db.publishDueScheduledResults().catch((e) => console.error('Scheduled publish check failed:', e));
+  db.publishDueScheduledSpecialResults().catch((e) => console.error('Scheduled special publish check failed:', e));
 }, 30 * 1000);
 
 // Keeps the "starred" lottery current when Automatic star mode is on (see
 // db.applyAutoStar) — no-ops instantly when star mode is set to Manual.
 setInterval(() => {
   db.applyAutoStar().catch((e) => console.error('Auto-star check failed:', e));
+  db.applyAutoSpecialStar().catch((e) => console.error('Special auto-star check failed:', e));
 }, 30 * 1000);
 
 // Automatically move results older than 40 days into the trash (see
