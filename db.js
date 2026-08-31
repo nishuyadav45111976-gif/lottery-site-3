@@ -1,8 +1,7 @@
-// PostgreSQL is the production source of truth. Every read and write goes
-// directly to the normalized tables. A lightweight in-memory cache keeps
-// db.get(...).value() synchronous so existing routes don't need changes.
-// A mutex serializes writes so two simultaneous requests can never corrupt
-// the cache or overwrite each other's changes.
+// PostgreSQL is the production source of truth. In production the application
+// state is stored in PostgreSQL app_state and every persistence operation is
+// transactional. The JSON file is development-only and is never read in
+// production.
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -25,31 +24,44 @@ const defaults = {
 
 const postgresEnabled = !!process.env.DATABASE_URL;
 const productionWithoutDb = process.env.NODE_ENV === 'production' && !postgresEnabled;
+let state = JSON.parse(JSON.stringify(defaults));
 let pool = null;
 let initError = null;
 let readyResolve;
 const ready = new Promise(resolve => { readyResolve = resolve; });
-
-// In-memory cache — rebuilt from PostgreSQL on startup and refreshed atomically
-// after every write.  Reads are synchronous; writes are async and mutex-locked.
-let cache = JSON.parse(JSON.stringify(defaults));
-
-// Serialize all writes so the cache and database stay in perfect sync.
-let writeMutex = Promise.resolve();
-async function withWriteLock(fn) {
-  writeMutex = writeMutex.then(fn, fn);
-  return writeMutex;
-}
+let writeTimer = null;
+let writeQueued = false;
+let writing = Promise.resolve();
 
 function clone(v) {
+  // JSON.stringify(undefined) returns undefined, which JSON.parse cannot parse.
+  // A .find() with no match must safely return undefined instead of crashing the request.
   if (v === undefined) return undefined;
   return JSON.parse(JSON.stringify(v));
+}
+function deepMerge(base, extra) {
+  const out = clone(base);
+  Object.keys(extra || {}).forEach(k => {
+    if (extra[k] && typeof extra[k] === 'object' && !Array.isArray(extra[k]) && out[k] && typeof out[k] === 'object' && !Array.isArray(out[k])) out[k] = deepMerge(out[k], extra[k]);
+    else out[k] = clone(extra[k]);
+  });
+  return out;
+}
+
+// Development-only JSON compatibility. Never instantiate/read it in production.
+let jsonDb = null;
+if (!postgresEnabled && !productionWithoutDb) {
+  const low = require('lowdb');
+  const FileSync = require('lowdb/adapters/FileSync');
+  const adapter = new FileSync(path.join(__dirname, 'data-db.json'));
+  jsonDb = low(adapter);
+  jsonDb.defaults(defaults).write();
+  state = deepMerge(defaults, jsonDb.value() || {});
 }
 
 function getPath(obj, pathString) {
   return String(pathString).split('.').reduce((acc, key) => acc == null ? undefined : acc[key], obj);
 }
-
 function setPath(obj, pathString, value) {
   const parts = String(pathString).split('.');
   let cur = obj;
@@ -59,224 +71,20 @@ function setPath(obj, pathString, value) {
   }
   cur[parts[parts.length - 1]] = clone(value);
 }
+function matches(obj, query) { return Object.keys(query || {}).every(k => getPath(obj, k) === query[k]); }
 
-function matches(obj, query) {
-  return Object.keys(query || {}).every(k => getPath(obj, k) === query[k]);
-}
-
-// ---------------------------------------------------------------------------
-// TABLE MAPPING
-// ---------------------------------------------------------------------------
-const TABLE_MAP = {
-  lotteries: 'lotteries',
-  results: 'results',
-  purchases: 'purchases',
-  purchaseHistory: 'purchases',
-  users: 'users',
-  watchedNumbers: 'watched_numbers',
-  notifications: 'notifications',
-  auditLog: 'audit_log',
-  specialLotteries: 'special_lotteries',
-  specialResults: 'special_results',
-  specialPurchases: 'special_purchases',
-  specialPurchaseHistory: 'special_purchases',
-};
-
-const SETTINGS_KEYS = Object.keys(defaults.settings);
-
-// ---------------------------------------------------------------------------
-// SCHEMA SETUP
-// ---------------------------------------------------------------------------
-async function createNormalizedTables() {
-  await pool.query(`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY,name text NOT NULL,user_code text NOT NULL,password_hash text NOT NULL,active boolean NOT NULL DEFAULT true,session_version integer NOT NULL DEFAULT 0,recovery_code_hash text,created_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_code_hash text`);
-  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_user_code_lower_idx ON users (lower(user_code))`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS lotteries (id text PRIMARY KEY,name text NOT NULL,slug text NOT NULL UNIQUE,draw_time text,starred boolean NOT NULL DEFAULT false,is_main boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`ALTER TABLE lotteries ADD COLUMN IF NOT EXISTS is_main boolean NOT NULL DEFAULT false`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS purchases (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE SET NULL,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,number text NOT NULL CHECK(number ~ '^[0-9]{2}$'),buyer_name text NOT NULL,tickets integer NOT NULL CHECK(tickets>0 AND tickets<=100000),amount numeric NOT NULL DEFAULT 0 CHECK(amount>=0 AND amount<=10000000),request_id text,created_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS request_id text`);
-  await pool.query(`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS round_ended_at timestamptz`);
-  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS purchases_user_request_idx ON purchases(user_id,request_id) WHERE request_id IS NOT NULL`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS purchases_user_lottery_idx ON purchases(user_id,lottery_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS purchases_lottery_number_idx ON purchases(lottery_id,number)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS results (id text PRIMARY KEY,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,date date NOT NULL,result_text text NOT NULL,updated_at timestamptz,deleted_at timestamptz,published boolean DEFAULT true,scheduled_for timestamptz)`);
-  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS results_lottery_date_active_idx ON results(lottery_id,date) WHERE deleted_at IS NULL`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS watched_numbers (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE CASCADE,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,number text NOT NULL CHECK(number ~ '^[0-9]{2}$'),created_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS watched_unique_idx ON watched_numbers(user_id,lottery_id,number)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS notifications (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE CASCADE,lottery_id text,result_date date,number text,title text,message text,created_at timestamptz NOT NULL DEFAULT now(),read_at timestamptz,type text)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS audit_log (id text PRIMARY KEY,action text,detail text,ip text,timestamp timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS daily_visits (visit_date date PRIMARY KEY,visits integer NOT NULL DEFAULT 0,unique_sessions integer NOT NULL DEFAULT 0,updated_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS visitor_daily (visit_date date NOT NULL,visitor_id text NOT NULL,PRIMARY KEY(visit_date,visitor_id))`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS app_state (id integer PRIMARY KEY CHECK(id=1),data jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now())`);
-
-  // Special lottery tables
-  await pool.query(`CREATE TABLE IF NOT EXISTS special_lotteries (id text PRIMARY KEY,name text NOT NULL,slug text NOT NULL UNIQUE,draw_time text,starred boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS special_results (id text PRIMARY KEY,lottery_id text REFERENCES special_lotteries(id) ON DELETE CASCADE,date date NOT NULL,result_text text NOT NULL,updated_at timestamptz,deleted_at timestamptz,published boolean DEFAULT true,scheduled_for timestamptz)`);
-  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS special_results_lottery_date_idx ON special_results(lottery_id,date) WHERE deleted_at IS NULL`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS special_purchases (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE SET NULL,lottery_id text REFERENCES special_lotteries(id) ON DELETE CASCADE,number text NOT NULL,buyer_name text NOT NULL,tickets integer NOT NULL DEFAULT 1,amount numeric NOT NULL DEFAULT 0,request_id text,created_at timestamptz NOT NULL DEFAULT now(),round_ended_at timestamptz)`);
-
-  // Settings table
-  await pool.query(`CREATE TABLE IF NOT EXISTS settings (key text PRIMARY KEY,value jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now())`);
-}
-
-// ---------------------------------------------------------------------------
-// CACHE MANAGEMENT
-// ---------------------------------------------------------------------------
-async function refreshCache() {
-  if (!postgresEnabled || !pool) return;
-  const client = await pool.connect();
-  try {
-    const [
-      lotteries, results, purchases, users, watchedNumbers,
-      notifications, auditLog, specialLotteries, specialResults,
-      specialPurchases, settingsRows
-    ] = await Promise.all([
-      client.query('SELECT id, name, slug, draw_time, starred, is_main, created_at FROM lotteries ORDER BY created_at'),
-      client.query('SELECT id, lottery_id, date, result_text, updated_at, deleted_at, published, scheduled_for FROM results WHERE deleted_at IS NULL ORDER BY date DESC'),
-      client.query('SELECT id, user_id, lottery_id, number, buyer_name, tickets, amount, request_id, created_at, round_ended_at FROM purchases ORDER BY created_at DESC'),
-      client.query('SELECT id, name, user_code, password_hash, active, session_version, recovery_code_hash, created_at FROM users ORDER BY created_at'),
-      client.query('SELECT id, user_id, lottery_id, number, created_at FROM watched_numbers ORDER BY created_at'),
-      client.query('SELECT id, user_id, lottery_id, result_date, number, title, message, created_at, read_at, type FROM notifications ORDER BY created_at DESC'),
-      client.query('SELECT id, action, detail, ip, timestamp FROM audit_log ORDER BY timestamp DESC LIMIT 500'),
-      client.query('SELECT id, name, slug, draw_time, starred, created_at FROM special_lotteries ORDER BY created_at'),
-      client.query('SELECT id, lottery_id, date, result_text, updated_at, deleted_at, published, scheduled_for FROM special_results WHERE deleted_at IS NULL ORDER BY date DESC'),
-      client.query('SELECT id, user_id, lottery_id, number, buyer_name, tickets, amount, request_id, created_at, round_ended_at FROM special_purchases ORDER BY created_at DESC'),
-      client.query('SELECT key, value FROM settings'),
-    ]);
-
-    const newCache = JSON.parse(JSON.stringify(defaults));
-    newCache.lotteries = lotteries.rows.map(r => ({...r, isMain: r.is_main, drawTime: r.draw_time, createdAt: r.created_at}));
-    newCache.results = results.rows.map(r => ({...r, lotteryId: r.lottery_id, resultText: r.result_text, updatedAt: r.updated_at, deletedAt: r.deleted_at, scheduledFor: r.scheduled_for}));
-    newCache.purchases = purchases.rows.filter(r => !r.round_ended_at).map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, buyerName: r.buyer_name, requestId: r.request_id, createdAt: r.created_at, roundEndedAt: r.round_ended_at}));
-    newCache.purchaseHistory = purchases.rows.filter(r => !!r.round_ended_at).map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, buyerName: r.buyer_name, requestId: r.request_id, createdAt: r.created_at, roundEndedAt: r.round_ended_at}));
-    newCache.users = users.rows.map(r => ({...r, userCode: r.user_code, passwordHash: r.password_hash, sessionVersion: r.session_version, recoveryCodeHash: r.recovery_code_hash, createdAt: r.created_at}));
-    newCache.watchedNumbers = watchedNumbers.rows.map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, createdAt: r.created_at}));
-    newCache.notifications = notifications.rows.map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, resultDate: r.result_date, readAt: r.read_at, createdAt: r.created_at}));
-    newCache.auditLog = auditLog.rows.map(r => ({...r}));
-    newCache.specialLotteries = specialLotteries.rows.map(r => ({...r, drawTime: r.draw_time, createdAt: r.created_at}));
-    newCache.specialResults = specialResults.rows.map(r => ({...r, lotteryId: r.lottery_id, resultText: r.result_text, updatedAt: r.updated_at, deletedAt: r.deleted_at, scheduledFor: r.scheduled_for}));
-    newCache.specialPurchases = specialPurchases.rows.filter(r => !r.round_ended_at).map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, buyerName: r.buyer_name, requestId: r.request_id, createdAt: r.created_at, roundEndedAt: r.round_ended_at}));
-    newCache.specialPurchaseHistory = specialPurchases.rows.filter(r => !!r.round_ended_at).map(r => ({...r, userId: r.user_id, lotteryId: r.lottery_id, buyerName: r.buyer_name, requestId: r.request_id, createdAt: r.created_at, roundEndedAt: r.round_ended_at}));
-
-    settingsRows.rows.forEach(r => {
-      newCache.settings[r.key] = r.value;
-    });
-
-    cache = newCache;
-  } finally {
-    client.release();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// SQL HELPERS
-// ---------------------------------------------------------------------------
-function snakeCase(key) {
-  return key.replace(/[A-Z]/g, m => '_' + m.toLowerCase());
-}
-
-function buildWhere(table, query) {
-  if (!query || Object.keys(query).length === 0) return { clause: '', values: [] };
-  const keys = Object.keys(query);
-  const clauses = keys.map((k, i) => `${snakeCase(k)} = $${i + 1}`);
-  return { clause: 'WHERE ' + clauses.join(' AND '), values: keys.map(k => query[k]) };
-}
-
-function buildUpdate(table, updates) {
-  const keys = Object.keys(updates);
-  const sets = keys.map((k, i) => `${snakeCase(k)} = $${i + 1}`);
-  return { clause: sets.join(', '), values: keys.map(k => updates[k]) };
-}
-
-async function sqlSelect(table, where, options) {
-  if (!postgresEnabled || !pool) return [];
-  const { clause, values } = buildWhere(table, where);
-  let sql = `SELECT * FROM ${table} ${clause}`;
-  if (options.sortBy) {
-    const cols = Array.isArray(options.sortBy) ? options.sortBy : [options.sortBy];
-    sql += ' ORDER BY ' + cols.map(snakeCase).join(', ');
-  }
-  if (options.reverse) sql += ' DESC';
-  const r = await pool.query(sql, values);
-  return r.rows;
-}
-
-async function sqlInsert(table, item) {
-  if (!postgresEnabled || !pool) return;
-  const keys = Object.keys(item).filter(k => item[k] !== undefined);
-  const cols = keys.map(snakeCase);
-  const vals = keys.map((_, i) => `$${i + 1}`);
-  const sql = `INSERT INTO ${table} (${cols.join(',')}) VALUES (${vals.join(',')})`;
-  await pool.query(sql, keys.map(k => item[k]));
-}
-
-async function sqlUpdate(table, where, updates) {
-  if (!postgresEnabled || !pool) return;
-  const { clause: whereClause, values: whereValues } = buildWhere(table, where);
-  const { clause: setClause, values: setValues } = buildUpdate(table, updates);
-  const sql = `UPDATE ${table} SET ${setClause} ${whereClause}`;
-  await pool.query(sql, [...setValues, ...whereValues]);
-}
-
-async function sqlDelete(table, where) {
-  if (!postgresEnabled || !pool) return;
-  const { clause, values } = buildWhere(table, where);
-  await pool.query(`DELETE FROM ${table} ${clause}`, values);
-}
-
-// ---------------------------------------------------------------------------
-// SETTINGS HELPERS
-// ---------------------------------------------------------------------------
-async function loadSettings() {
-  if (!postgresEnabled || !pool) return clone(defaults.settings);
-  const r = await pool.query('SELECT key, value FROM settings');
-  const s = {};
-  r.rows.forEach(row => { s[row.key] = row.value; });
-  return s;
-}
-
-async function saveSettings(settingsObj) {
-  if (!postgresEnabled || !pool) return;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    for (const key of Object.keys(settingsObj)) {
-      await client.query(`INSERT INTO settings(key,value,updated_at) VALUES($1,$2,now()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=now()`, [key, JSON.stringify(settingsObj[key])]);
-    }
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// CHAIN CLASS (preserves existing API)
-// ---------------------------------------------------------------------------
 class Chain {
-  constructor(value, rootPath = null, queryContext = null) {
-    this.valueData = value;
-    this.rootPath = rootPath;
-    this.queryContext = queryContext || {};
-  }
-
+  constructor(value, rootPath = null) { this.valueData = value; this.rootPath = rootPath; }
   value() { return clone(this.valueData); }
-
   find(queryOrFn) {
     const arr = Array.isArray(this.valueData) ? this.valueData : [];
     const predicate = typeof queryOrFn === 'function' ? queryOrFn : x => matches(x, queryOrFn);
-    const found = arr.find(predicate);
-    return new Chain(found, this.rootPath, { ...this.queryContext, findQuery: queryOrFn, found });
+    return new Chain(arr.find(predicate), { parent: this.valueData, type: 'find', query: queryOrFn });
   }
-
   filter(queryOrFn) {
     const arr = Array.isArray(this.valueData) ? this.valueData : [];
-    const out = typeof queryOrFn === 'function' ? arr.filter(queryOrFn) : arr.filter(x => matches(x, queryOrFn));
-    return new Chain(out, this.rootPath, { ...this.queryContext, filterQuery: queryOrFn });
+    return new Chain(typeof queryOrFn === 'function' ? arr.filter(queryOrFn) : arr.filter(x => matches(x, queryOrFn)), { parent: this.valueData, type: 'filter' });
   }
-
   sortBy(keys) {
     const ks = Array.isArray(keys) ? keys : [keys];
     const out = clone(this.valueData || []).sort((a, b) => {
@@ -287,390 +95,278 @@ class Chain {
       }
       return 0;
     });
-    return new Chain(out, this.rootPath, { ...this.queryContext, sortBy: keys });
+    return new Chain(out);
   }
-
-  reverse() { return new Chain((this.valueData || []).slice().reverse(), this.rootPath, { ...this.queryContext, reverse: true }); }
-
-  slice(...args) { return new Chain((this.valueData || []).slice(...args), this.rootPath, this.queryContext); }
-
-  push(item) {
-    if (Array.isArray(this.valueData)) {
-      this.valueData.push(clone(item));
-    }
-    return new Chain(this.valueData, this.rootPath, { ...this.queryContext, pushItem: item });
-  }
-
-  assign(obj) {
-    if (this.valueData && typeof this.valueData === 'object') {
-      Object.assign(this.valueData, clone(obj));
-    }
-    return new Chain(this.valueData, this.rootPath, { ...this.queryContext, assignObj: obj });
-  }
-
+  reverse() { return new Chain((this.valueData || []).slice().reverse()); }
+  slice(...args) { return new Chain((this.valueData || []).slice(...args)); }
+  push(item) { if (Array.isArray(this.valueData)) this.valueData.push(clone(item)); return this; }
+  assign(obj) { if (this.valueData && typeof this.valueData === 'object') Object.assign(this.valueData, clone(obj)); return this; }
   remove(query) {
     if (!Array.isArray(this.valueData)) return this;
     const kept = this.valueData.filter(x => !matches(x, query));
     this.valueData.length = 0;
     kept.forEach(x => this.valueData.push(x));
-    return new Chain(this.valueData, this.rootPath, { ...this.queryContext, removeQuery: query });
+    return this;
   }
+  write() { persistState(); return this; }
+}
+function dbGet(p) { return new Chain(getPath(state, p), p); }
+function dbSet(p, v) { setPath(state, p, v); return new Chain(getPath(state, p), p); }
+function dbDefaults(o) { state = deepMerge(o, state); return new Chain(state); }
 
-  write() {
-    return withWriteLock(async () => {
-      if (!postgresEnabled || !pool) {
-        // Development JSON fallback
-        if (jsonDb) { jsonDb.setState(cache); jsonDb.write(); }
-        return this;
-      }
-
-      const table = TABLE_MAP[this.rootPath];
-      const qc = this.queryContext;
-
-      // Handle settings
-      if (this.rootPath === 'settings' || String(this.rootPath).startsWith('settings.')) {
-        await saveSettings(cache.settings);
-        await backupAppState();
-        return this;
-      }
-
-      if (!table) {
-        // Fallback: backup to app_state for unknown paths
-        await backupAppState();
-        return this;
-      }
-
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-
-        if (qc.pushItem) {
-          // INSERT
-          const item = qc.pushItem;
-          if (this.rootPath === 'purchases' || this.rootPath === 'specialPurchases') {
-            item.roundEndedAt = null;
-          }
-          await sqlInsert(table, item);
-        } else if (qc.removeQuery) {
-          // DELETE
-          const where = {};
-          if (qc.findQuery && typeof qc.findQuery === 'object') Object.assign(where, qc.findQuery);
-          else if (qc.removeQuery && typeof qc.removeQuery === 'object') Object.assign(where, qc.removeQuery);
-          if (this.rootPath === 'results' || this.rootPath === 'specialResults') {
-            // Soft delete for results
-            await client.query(`UPDATE ${table} SET deleted_at = now() ${buildWhere(table, where).clause ? buildWhere(table, where).clause : ''}`, buildWhere(table, where).values);
-          } else {
-            await client.query(`DELETE FROM ${table} ${buildWhere(table, where).clause}`, buildWhere(table, where).values);
-          }
-        } else if (qc.assignObj) {
-          // UPDATE
-          const where = {};
-          if (qc.findQuery && typeof qc.findQuery === 'object') Object.assign(where, qc.findQuery);
-          const updates = {};
-          for (const k of Object.keys(qc.assignObj)) {
-            if (k === 'id') continue;
-            updates[k] = qc.assignObj[k];
-          }
-          if (Object.keys(where).length && Object.keys(updates).length) {
-            await sqlUpdate(table, where, updates);
-          } else if (Object.keys(updates).length && qc.found && qc.found.id) {
-            await sqlUpdate(table, { id: qc.found.id }, updates);
-          }
-        }
-
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      } finally {
-        client.release();
-      }
-
-      // Refresh cache atomically after successful commit
-      await refreshCache();
-      await backupAppState();
-      return this;
-    });
-  }
+async function createNormalizedTables() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY,name text NOT NULL,user_code text NOT NULL,password_hash text NOT NULL,active boolean NOT NULL DEFAULT true,session_version integer NOT NULL DEFAULT 0,recovery_code_hash text,created_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_code_hash text`);
+  // Login is case-insensitive, so the database must enforce the same rule.
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_user_code_lower_idx ON users (lower(user_code))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lotteries (id text PRIMARY KEY,name text NOT NULL,slug text NOT NULL UNIQUE,draw_time text,starred boolean NOT NULL DEFAULT false,is_main boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`ALTER TABLE lotteries ADD COLUMN IF NOT EXISTS is_main boolean NOT NULL DEFAULT false`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS purchases (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE SET NULL,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,number text NOT NULL CHECK(number ~ '^[0-9]{2}$'),buyer_name text NOT NULL,tickets integer NOT NULL CHECK(tickets>0 AND tickets<=100000),amount numeric NOT NULL DEFAULT 0 CHECK(amount>=0 AND amount<=10000000),request_id text,created_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS request_id text`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS purchases_user_request_idx ON purchases(user_id,request_id) WHERE request_id IS NOT NULL`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS purchases_user_lottery_idx ON purchases(user_id,lottery_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS purchases_lottery_number_idx ON purchases(lottery_id,number)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS results (id text PRIMARY KEY,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,date date NOT NULL,result_text text NOT NULL,updated_at timestamptz,deleted_at timestamptz)`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS results_lottery_date_active_idx ON results(lottery_id,date) WHERE deleted_at IS NULL`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS watched_numbers (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE CASCADE,lottery_id text REFERENCES lotteries(id) ON DELETE CASCADE,number text NOT NULL CHECK(number ~ '^[0-9]{2}$'),created_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS watched_unique_idx ON watched_numbers(user_id,lottery_id,number)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS notifications (id text PRIMARY KEY,user_id text REFERENCES users(id) ON DELETE CASCADE,lottery_id text,result_date date,number text,title text,message text,created_at timestamptz NOT NULL DEFAULT now(),read_at timestamptz,type text)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS audit_log (id text PRIMARY KEY,action text,detail text,ip text,timestamp timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS daily_visits (visit_date date PRIMARY KEY,visits integer NOT NULL DEFAULT 0,unique_sessions integer NOT NULL DEFAULT 0,updated_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS visitor_daily (visit_date date NOT NULL,visitor_id text NOT NULL,PRIMARY KEY(visit_date,visitor_id))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_state (id integer PRIMARY KEY CHECK(id=1),data jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now())`);
 }
 
-// ---------------------------------------------------------------------------
-// DB GET / SET / DEFAULTS
-// ---------------------------------------------------------------------------
-function dbGet(p) {
-  const val = getPath(cache, p);
-  return new Chain(clone(val), p);
+function sanitizeStateForRelationalSync() {
+  // PostgreSQL is the production source of truth, so the JSON snapshot must
+  // also be a valid relational snapshot. Older app versions could leave
+  // orphaned child rows behind after a lottery/user was deleted. That made a
+  // completely unrelated later save fail inside the all-or-nothing sync
+  // transaction with a foreign-key/unique-constraint error.
+  const seenUsers = new Set();
+  state.users = (state.users || []).filter(u => {
+    const key = String(u.userCode || '').trim().toLowerCase();
+    if (!u.id || !key || seenUsers.has(key)) return false;
+    seenUsers.add(key); return true;
+  });
+
+  const seenSlugs = new Set();
+  state.lotteries = (state.lotteries || []).filter(l => {
+    const key = String(l.slug || '').trim().toLowerCase();
+    if (!l.id || !key || seenSlugs.has(key)) return false;
+    seenSlugs.add(key); return true;
+  });
+
+  const validUserIds = new Set(state.users.map(u => u.id));
+  const validLotteryIds = new Set(state.lotteries.map(l => l.id));
+
+  const seenPurchaseIds = new Set();
+  const seenPurchaseRequests = new Set();
+  state.purchases = (state.purchases || []).filter(p => {
+    if (!p.id || seenPurchaseIds.has(p.id)) return false;
+    seenPurchaseIds.add(p.id);
+    if (p.userId && !validUserIds.has(p.userId)) p.userId = null;
+    if (p.lotteryId && !validLotteryIds.has(p.lotteryId)) p.lotteryId = null;
+    if (p.requestId && p.userId) {
+      const key = `${p.userId}:${p.requestId}`;
+      if (seenPurchaseRequests.has(key)) return false;
+      seenPurchaseRequests.add(key);
+    }
+    return true;
+  });
+
+  const seenResultIds = new Set();
+  const seenActiveResults = new Set();
+  state.results = (state.results || []).filter(r => {
+    if (!r.id || seenResultIds.has(r.id) || !validLotteryIds.has(r.lotteryId)) return false;
+    seenResultIds.add(r.id);
+    if (!r.deletedAt) {
+      const key = `${r.lotteryId}:${r.date}`;
+      if (seenActiveResults.has(key)) return false;
+      seenActiveResults.add(key);
+    }
+    return true;
+  });
+
+  const seenWatchedIds = new Set();
+  const seenWatchedKeys = new Set();
+  state.watchedNumbers = (state.watchedNumbers || []).filter(w => {
+    if (!w.id || seenWatchedIds.has(w.id) || !validLotteryIds.has(w.lotteryId) || !validUserIds.has(w.userId)) return false;
+    const key = `${w.userId}:${w.lotteryId}:${w.number}`;
+    if (seenWatchedKeys.has(key)) return false;
+    seenWatchedIds.add(w.id);
+    seenWatchedKeys.add(key);
+    return true;
+  });
+
+  const seenNotificationIds = new Set();
+  state.notifications = (state.notifications || []).filter(n => {
+    if (!n.id || seenNotificationIds.has(n.id) || !validUserIds.has(n.userId)) return false;
+    // notifications.lottery_id is nullable, but when present it must refer to
+    // an existing lottery. This was the missing orphan-row case that could
+    // make every subsequent save fail.
+    if (n.lotteryId && !validLotteryIds.has(n.lotteryId)) n.lotteryId = null;
+    seenNotificationIds.add(n.id);
+    return true;
+  });
+
+  const seenAuditIds = new Set();
+  state.auditLog = (state.auditLog || []).filter(a => {
+    if (!a.id || seenAuditIds.has(a.id)) return false;
+    seenAuditIds.add(a.id);
+    return true;
+  });
 }
 
-function dbSet(p, v) {
-  setPath(cache, p, v);
-  return new Chain(getPath(cache, p), p);
-}
-
-function dbDefaults(o) {
-  cache = { ...JSON.parse(JSON.stringify(o)), ...cache };
-  return new Chain(clone(cache));
-}
-
-// ---------------------------------------------------------------------------
-// APP_STATE BACKUP (lightweight cache — never read as primary)
-// ---------------------------------------------------------------------------
-async function backupAppState() {
-  if (!postgresEnabled || !pool) return;
-  const snapshot = {
-    lotteries: cache.lotteries,
-    results: cache.results,
-    purchases: cache.purchases,
-    purchaseHistory: cache.purchaseHistory,
-    users: cache.users,
-    watchedNumbers: cache.watchedNumbers,
-    specialLotteries: cache.specialLotteries,
-    specialResults: cache.specialResults,
-    specialPurchases: cache.specialPurchases,
-    specialPurchaseHistory: cache.specialPurchaseHistory,
-    notifications: cache.notifications,
-    settings: cache.settings,
-    auditLog: cache.auditLog,
-    analytics: cache.analytics,
-    visitorSessions: cache.visitorSessions,
-  };
+async function syncNormalizedTables(client) {
+  if (!postgresEnabled || !pool || !client) return;
   try {
-    await pool.query(`UPDATE app_state SET data=$1::jsonb,updated_at=now() WHERE id=1`, [JSON.stringify(snapshot)]);
-  } catch (e) {
-    console.error('App state backup failed:', e.message);
-  }
+    // Rebuild the normalized projection from app_state as one exact snapshot.
+    // Older versions only upserted current rows, which left deleted rows in
+    // PostgreSQL. A later add could then fail on UNIQUE(slug) or UNIQUE(lower(user_code))
+    // even though the row no longer existed in the canonical app_state. Clear
+    // dependent tables first (their foreign keys point at users/lotteries), then
+    // rebuild users and lotteries from the canonical state.
+    await client.query('DELETE FROM notifications');
+    await client.query('DELETE FROM watched_numbers');
+    await client.query('DELETE FROM results');
+    await client.query('DELETE FROM purchases');
+    await client.query('DELETE FROM audit_log');
+    await client.query('DELETE FROM lotteries');
+    await client.query('DELETE FROM users');
+
+    for (const u of state.users || []) {
+      await client.query(`INSERT INTO users(id,name,user_code,password_hash,active,session_version,recovery_code_hash,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,COALESCE($8,now()))`, [u.id,u.name,String(u.userCode).trim(),u.passwordHash,u.active!==false,Number(u.sessionVersion||0),u.recoveryCodeHash||null,u.createdAt]);
+    }
+    for (const l of state.lotteries || []) {
+      await client.query(`INSERT INTO lotteries(id,name,slug,draw_time,starred,is_main,created_at) VALUES($1,$2,$3,$4,$5,$6,COALESCE($7,now()))`, [l.id,l.name,l.slug,l.drawTime||null,!!l.starred,!!l.isMain,l.createdAt]);
+    }
+    for (const x of state.purchases || []) {
+      const tickets = Number(x.tickets); const amount = Number(x.amount);
+      if (!/^\d{2}$/.test(String(x.number)) || !Number.isInteger(tickets) || tickets < 1 || tickets > 100000 || !Number.isFinite(amount) || amount < 0 || amount > 10000000) continue;
+      await client.query(`INSERT INTO purchases(id,user_id,lottery_id,number,buyer_name,tickets,amount,request_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,now()))`, [x.id,x.userId && validId(state.users,x.userId) ? x.userId : null,x.lotteryId && validId(state.lotteries,x.lotteryId) ? x.lotteryId : null,String(x.number),String(x.buyerName||''),tickets,amount,x.requestId||null,x.createdAt]);
+    }
+    const activeResultKeys = new Set();
+    for (const x of state.results || []) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))) continue;
+      const key = `${x.lotteryId}:${x.date}`;
+      if (!x.deletedAt && activeResultKeys.has(key)) continue;
+      if (!x.deletedAt) activeResultKeys.add(key);
+      await client.query(`INSERT INTO results(id,lottery_id,date,result_text,updated_at,deleted_at) VALUES($1,$2,$3,$4,$5,$6)`, [x.id,x.lotteryId,x.date,String(x.resultText||''),x.updatedAt||null,x.deletedAt||null]);
+    }
+    const watchedKeys = new Set();
+    for (const x of state.watchedNumbers || []) {
+      const key = `${x.userId}:${x.lotteryId}:${x.number}`;
+      if (watchedKeys.has(key)) continue; watchedKeys.add(key);
+      if (!/^\d{2}$/.test(String(x.number))) continue;
+      await client.query(`INSERT INTO watched_numbers(id,user_id,lottery_id,number,created_at) VALUES($1,$2,$3,$4,COALESCE($5,now()))`, [x.id,x.userId,x.lotteryId,String(x.number),x.createdAt]);
+    }
+    for (const x of state.notifications || []) {
+      await client.query(`INSERT INTO notifications(id,user_id,lottery_id,result_date,number,title,message,created_at,read_at,type) VALUES($1,$2,$3,$4,$5,$6,$7,COALESCE($8,now()),$9,$10)`, [x.id,x.userId,x.lotteryId||null,x.resultDate||null,x.number||null,x.title||'',x.message||'',x.createdAt,x.readAt||null,x.type||null]);
+    }
+    for (const x of state.auditLog || []) {
+      await client.query(`INSERT INTO audit_log(id,action,detail,ip,timestamp) VALUES($1,$2,$3,$4,COALESCE($5,now()))`, [x.id,x.action||'',x.detail||'',x.ip||'',x.timestamp]);
+    }
+  } catch (e) { throw e; }
 }
-
-// ---------------------------------------------------------------------------
-// INITIALIZATION
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// MIGRATION: Copy data from legacy app_state JSON blob to new normalized tables
-// This runs once on first boot after the Part 2 update.
-// ---------------------------------------------------------------------------
-async function migrateFromLegacyAppState() {
-  if (!postgresEnabled || !pool) return;
-
-  // Check if we already have data in the new tables
-  const counts = await Promise.all([
-    pool.query('SELECT COUNT(*) FROM lotteries'),
-    pool.query('SELECT COUNT(*) FROM settings'),
-  ]);
-  const hasLotteries = parseInt(counts[0].rows[0].count) > 0;
-  const hasSettings = parseInt(counts[1].rows[0].count) > 0;
-
-  // If both tables have data, migration already happened
-  if (hasLotteries && hasSettings) return;
-
-  // Read the legacy app_state
-  const legacy = await pool.query('SELECT data FROM app_state WHERE id=1');
-  if (!legacy.rows.length || !legacy.rows[0].data) {
-    console.log('No legacy app_state found. Fresh install — using defaults.');
-    return;
-  }
-
-  const old = legacy.rows[0].data;
-  console.log('Migrating data from legacy app_state to normalized tables...');
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Migrate settings
-    if (old.settings && !hasSettings) {
-      for (const key of Object.keys(old.settings)) {
-        await client.query(
-          `INSERT INTO settings(key,value,updated_at) VALUES($1,$2,now()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=now()`,
-          [key, JSON.stringify(old.settings[key])]
-        );
-      }
-    }
-
-    // Migrate lotteries
-    if (old.lotteries && Array.isArray(old.lotteries) && !hasLotteries) {
-      for (const l of old.lotteries) {
-        await client.query(
-          `INSERT INTO lotteries(id,name,slug,draw_time,starred,is_main,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING`,
-          [l.id, l.name, l.slug, l.drawTime || l.draw_time, !!l.starred, !!l.isMain, l.createdAt || l.created_at || new Date().toISOString()]
-        );
-      }
-    }
-
-    // Migrate results
-    if (old.results && Array.isArray(old.results)) {
-      for (const r of old.results) {
-        await client.query(
-          `INSERT INTO results(id,lottery_id,date,result_text,updated_at,deleted_at,published,scheduled_for) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING`,
-          [r.id, r.lotteryId || r.lottery_id, r.date, r.resultText || r.result_text, r.updatedAt || r.updated_at, r.deletedAt || r.deleted_at, r.published !== false, r.scheduledFor || r.scheduled_for]
-        );
-      }
-    }
-
-    // Migrate users
-    if (old.users && Array.isArray(old.users)) {
-      for (const u of old.users) {
-        await client.query(
-          `INSERT INTO users(id,name,user_code,password_hash,active,session_version,recovery_code_hash,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING`,
-          [u.id, u.name, u.userCode || u.user_code, u.passwordHash || u.password_hash, u.active !== false, u.sessionVersion || u.session_version || 0, u.recoveryCodeHash || u.recovery_code_hash, u.createdAt || u.created_at || new Date().toISOString()]
-        );
-      }
-    }
-
-    // Migrate purchases
-    if (old.purchases && Array.isArray(old.purchases)) {
-      for (const p of old.purchases) {
-        await client.query(
-          `INSERT INTO purchases(id,user_id,lottery_id,number,buyer_name,tickets,amount,request_id,created_at,round_ended_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING`,
-          [p.id, p.userId || p.user_id, p.lotteryId || p.lottery_id, p.number, p.buyerName || p.buyer_name, p.tickets || 1, p.amount || 0, p.requestId || p.request_id, p.createdAt || p.created_at || new Date().toISOString(), p.roundEndedAt || p.round_ended_at]
-        );
-      }
-    }
-
-    // Migrate watched numbers
-    if (old.watchedNumbers && Array.isArray(old.watchedNumbers)) {
-      for (const w of old.watchedNumbers) {
-        await client.query(
-          `INSERT INTO watched_numbers(id,user_id,lottery_id,number,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING`,
-          [w.id, w.userId || w.user_id, w.lotteryId || w.lottery_id, w.number, w.createdAt || w.created_at || new Date().toISOString()]
-        );
-      }
-    }
-
-    // Migrate notifications
-    if (old.notifications && Array.isArray(old.notifications)) {
-      for (const n of old.notifications) {
-        await client.query(
-          `INSERT INTO notifications(id,user_id,lottery_id,result_date,number,title,message,created_at,read_at,type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING`,
-          [n.id, n.userId || n.user_id, n.lotteryId || n.lottery_id, n.resultDate || n.result_date, n.number, n.title, n.message, n.createdAt || n.created_at || new Date().toISOString(), n.readAt || n.read_at, n.type]
-        );
-      }
-    }
-
-    // Migrate audit log
-    if (old.auditLog && Array.isArray(old.auditLog)) {
-      for (const a of old.auditLog.slice(0, 500)) {
-        await client.query(
-          `INSERT INTO audit_log(id,action,detail,ip,timestamp) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING`,
-          [a.id, a.action, a.detail, a.ip, a.timestamp || new Date().toISOString()]
-        );
-      }
-    }
-
-    // Migrate special lotteries
-    if (old.specialLotteries && Array.isArray(old.specialLotteries)) {
-      for (const l of old.specialLotteries) {
-        await client.query(
-          `INSERT INTO special_lotteries(id,name,slug,draw_time,starred,created_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`,
-          [l.id, l.name, l.slug, l.drawTime || l.draw_time, !!l.starred, l.createdAt || l.created_at || new Date().toISOString()]
-        );
-      }
-    }
-
-    // Migrate special results
-    if (old.specialResults && Array.isArray(old.specialResults)) {
-      for (const r of old.specialResults) {
-        await client.query(
-          `INSERT INTO special_results(id,lottery_id,date,result_text,updated_at,deleted_at,published,scheduled_for) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING`,
-          [r.id, r.lotteryId || r.lottery_id, r.date, r.resultText || r.result_text, r.updatedAt || r.updated_at, r.deletedAt || r.deleted_at, r.published !== false, r.scheduledFor || r.scheduled_for]
-        );
-      }
-    }
-
-    // Migrate special purchases
-    if (old.specialPurchases && Array.isArray(old.specialPurchases)) {
-      for (const p of old.specialPurchases) {
-        await client.query(
-          `INSERT INTO special_purchases(id,user_id,lottery_id,number,buyer_name,tickets,amount,request_id,created_at,round_ended_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING`,
-          [p.id, p.userId || p.user_id, p.lotteryId || p.lottery_id, p.number, p.buyerName || p.buyer_name, p.tickets || 1, p.amount || 0, p.requestId || p.request_id, p.createdAt || p.created_at || new Date().toISOString(), p.roundEndedAt || p.round_ended_at]
-        );
-      }
-    }
-
-    await client.query('COMMIT');
-    console.log('Migration from legacy app_state completed successfully.');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('Migration failed:', e);
-    throw e;
-  } finally {
-    client.release();
-  }
-}
+function validId(list, id) { return list.some(x => x.id === id); }
 
 async function initPostgres() {
   pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined, max: 10 });
   await pool.query('SELECT 1');
   await createNormalizedTables();
-  await migrateFromLegacyAppState();
-
-  // Seed settings if empty
-  const settingsCount = await pool.query('SELECT COUNT(*) FROM settings');
-  if (parseInt(settingsCount.rows[0].count) === 0) {
-    for (const key of Object.keys(defaults.settings)) {
-      await pool.query(`INSERT INTO settings(key,value) VALUES($1,$2)`, [key, JSON.stringify(defaults.settings[key])]);
-    }
-  }
-
-  // Seed 2FA from env on first init
-  const totpRow = await pool.query(`SELECT value FROM settings WHERE key='adminTotpSecret'`);
-  if (process.env.ADMIN_TOTP_SECRET && (!totpRow.rows.length || !totpRow.rows[0].value)) {
-    await pool.query(`INSERT INTO settings(key,value) VALUES('adminTotpSecret',$1) ON CONFLICT(key) DO UPDATE SET value=$1`, [JSON.stringify(process.env.ADMIN_TOTP_SECRET)]);
-  }
-
-  await refreshCache();
+  const r = await pool.query('SELECT data FROM app_state WHERE id=1');
+  if (r.rows.length) state = deepMerge(defaults, r.rows[0].data || {});
+  else await pool.query('INSERT INTO app_state(id,data) VALUES(1,$1::jsonb)', [JSON.stringify(defaults)]);
+  // Seed 2FA from the environment only on first initialization.
+// An explicitly empty stored value means the administrator intentionally disabled 2FA,
+// so never re-enable it from ADMIN_TOTP_SECRET on a later restart.
+if (
+  process.env.ADMIN_TOTP_SECRET &&
+  !Object.prototype.hasOwnProperty.call(state.settings || {}, 'adminTotpSecret')
+) {
+  state.settings.adminTotpSecret = process.env.ADMIN_TOTP_SECRET;
+}
   await ensureDefaults();
 }
 
+async function persistState(force = false) {
+  if (!postgresEnabled || !pool) {
+    if (productionWithoutDb) throw new Error('DATABASE_URL is required in production.');
+    if (jsonDb) { jsonDb.setState(state); jsonDb.write(); }
+    return;
+  }
+  writeQueued = true;
+  if (writeTimer) clearTimeout(writeTimer);
+  if (force) return flushState();
+  writeTimer = setTimeout(() => flushState().catch(e => console.error('Database persistence failed:', e.message)), 0);
+}
+async function flushState() {
+  if (!postgresEnabled || !pool || !writeQueued) return;
+  writeQueued = false;
+  sanitizeStateForRelationalSync();
+  const snapshot = clone(state);
+  writing = writing.then(async () => {
+    // app_state is the canonical application store. Commit it independently
+    // from the optional relational projection so a stale/legacy row in one of
+    // the projection tables can NEVER make a normal application save fail.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(734291)');
+      await client.query('UPDATE app_state SET data=$1::jsonb,updated_at=now() WHERE id=1', [JSON.stringify(snapshot)]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally { client.release(); }
+
+    // Keep normalized tables synchronized for backups/integrations, but do not
+    // turn projection-only problems into application save failures. The next
+    // successful write will retry the projection.
+    const projectionClient = await pool.connect();
+    try {
+      await projectionClient.query('BEGIN');
+      await projectionClient.query('SELECT pg_advisory_xact_lock(734291)');
+      await syncNormalizedTables(projectionClient);
+      await projectionClient.query('COMMIT');
+    } catch (projectionError) {
+      try { await projectionClient.query('ROLLBACK'); } catch (_) {}
+      console.error('PostgreSQL normalized projection sync failed; app_state was saved successfully:', projectionError.message);
+    } finally {
+      projectionClient.release();
+    }
+  });
+  await writing;
+}
+
 async function ensureDefaults() {
-  // Ensure admin password exists
-  const adminHash = await pool.query(`SELECT value FROM settings WHERE key='adminPasswordHash'`);
-  if (!adminHash.rows.length || !adminHash.rows[0].value) {
+  state = deepMerge(defaults, state);
+  (state.users || []).forEach(u => { if (u.sessionVersion == null) u.sessionVersion = 0; });
+  if (!state.settings.adminPasswordHash) {
     const initialAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
     if (!initialAdminPassword) {
       throw new Error('ADMIN_PASSWORD is required to create the initial admin account; no default password is allowed.');
     }
-    const hashed = hashPassword(initialAdminPassword);
-    await pool.query(`INSERT INTO settings(key,value) VALUES('adminPasswordHash',$1) ON CONFLICT(key) DO UPDATE SET value=$1`, [JSON.stringify(hashed)]);
+    state.settings.adminPasswordHash = hashPassword(initialAdminPassword);
   }
-
-  // Ensure other settings exist
-  const requiredSettings = ['contactNumber','contactLabel','contactType','adminSessionVersion','adminTotpSecret','backupVersion'];
-  for (const key of requiredSettings) {
-    const r = await pool.query(`SELECT value FROM settings WHERE key=$1`, [key]);
-    if (!r.rows.length) {
-      const defaultVal = defaults.settings[key] ?? '';
-      await pool.query(`INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO NOTHING`, [key, JSON.stringify(defaultVal)]);
-    }
-  }
-
-  await refreshCache();
+  state.settings.contactNumber = state.settings.contactNumber ?? '';
+  state.settings.contactLabel = state.settings.contactLabel ?? 'Help & Queries';
+  state.settings.contactType = state.settings.contactType ?? 'call';
+  state.settings.adminSessionVersion = Number(state.settings.adminSessionVersion || 0);
+  state.settings.adminTotpSecret = state.settings.adminTotpSecret || '';
+  state.settings.backupVersion = Number(state.settings.backupVersion || 1);
+  await persistState(true);
 }
-
-// ---------------------------------------------------------------------------
-// CLEANUP
-// ---------------------------------------------------------------------------
 function cleanupOldResults() {
-  if (!postgresEnabled || !pool) return 0;
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 40); const c = cutoff.toISOString().slice(0,10);
-  return withWriteLock(async () => {
-    const r = await pool.query(`UPDATE results SET deleted_at = now(), auto_deleted = true WHERE deleted_at IS NULL AND date < $1 RETURNING id`, [c]);
-    const n = r.rows.length;
-    if (n) {
-      await pool.query(`UPDATE special_results SET deleted_at = now(), auto_deleted = true WHERE deleted_at IS NULL AND date < $1`, [c]);
-      await refreshCache();
-      await backupAppState();
-    }
-    return n;
-  });
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 40); const c = cutoff.toISOString().slice(0,10); let n = 0;
+  (state.results || []).forEach(r => { if (!r.deletedAt && r.date < c) { r.deletedAt = new Date().toISOString(); r.autoDeleted = true; n++; } });
+  if (n) persistState().catch(e => console.error('Result cleanup persistence failed:', e.message));
+  return n;
 }
-
-// ---------------------------------------------------------------------------
-// VISITS & ANALYTICS
-// ---------------------------------------------------------------------------
 async function recordVisit(visitorId, dateStr) {
   if (!postgresEnabled || !pool) {
-    const key = `analytics.${dateStr}`; const cur = Number(getPath(cache, key) || 0) + 1; setPath(cache, key, cur); return { visits: cur, uniqueSessions: cur };
+    const key = `analytics.${dateStr}`; const cur = Number(dbGet(key).value() || 0) + 1; dbSet(key, cur).write(); return { visits: cur, uniqueSessions: cur };
   }
   const c = await pool.connect();
   try {
@@ -682,30 +378,30 @@ async function recordVisit(visitorId, dateStr) {
     await c.query('COMMIT'); return r.rows[0];
   } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
 }
-
 async function getVisitStats(days = 14) {
   if (!postgresEnabled || !pool) return null;
   const r = await pool.query(`SELECT visit_date::text AS date,visits,unique_sessions AS "uniqueSessions" FROM daily_visits WHERE visit_date>=CURRENT_DATE-$1::int ORDER BY visit_date DESC`, [days - 1]);
   return r.rows;
 }
-
-// ---------------------------------------------------------------------------
-// NOTIFICATIONS
-// ---------------------------------------------------------------------------
+// Shared by both an immediate result post and the scheduled-publish checker,
+// so a follower only ever gets notified once, at the moment their number
+// actually becomes public — not the moment an admin merely saves it.
 function notifyResultWatchers(lottery, result) {
   const publishedNumbers = (result.resultText.match(/\d{1,2}/g) || []).map((n) => n.padStart(2, '0'));
-  const matchingWatches = (getPath(cache, 'watchedNumbers') || []).filter(
+  const matchingWatches = (dbGet('watchedNumbers').value() || []).filter(
     (w) => w.lotteryId === lottery.id && publishedNumbers.includes(w.number)
   );
-  matchingWatches.forEach(async (w) => {
-    const user = (getPath(cache, 'users') || []).find(u => u.id === w.userId);
+  matchingWatches.forEach((w) => {
+    const user = dbGet('users').find({ id: w.userId }).value();
     if (!user || user.notificationsEnabled === false) return;
-    const already = (getPath(cache, 'notifications') || []).find(n =>
-      n.userId === w.userId && n.lotteryId === lottery.id && n.resultDate === result.date && n.number === w.number
-    );
+    const already = dbGet('notifications').find({
+      userId: w.userId,
+      lotteryId: lottery.id,
+      resultDate: result.date,
+      number: w.number,
+    }).value();
     if (already) return;
-
-    const notification = {
+    dbGet('notifications').push({
       id: crypto.randomUUID(),
       userId: w.userId,
       lotteryId: lottery.id,
@@ -716,20 +412,7 @@ function notifyResultWatchers(lottery, result) {
       createdAt: new Date().toISOString(),
       readAt: null,
       type: 'result',
-    };
-
-    // Add to cache immediately
-    if (!cache.notifications) cache.notifications = [];
-    cache.notifications.push(notification);
-
-    // Persist to PostgreSQL
-    if (postgresEnabled && pool) {
-      try {
-        await pool.query(`INSERT INTO notifications(id,user_id,lottery_id,result_date,number,title,message,created_at,read_at,type) VALUES($1,$2,$3,$4,$5,$6,$7,now(),$8,$9)`, [notification.id, notification.userId, notification.lotteryId, notification.resultDate, notification.number, notification.title, notification.message, notification.readAt, notification.type]);
-      } catch (e) { console.error('Notification insert failed:', e.message); }
-    }
-
-    // Web push
+    }).write();
     try {
       const webpush = require('web-push');
       const publicKey = process.env.VAPID_PUBLIC_KEY;
@@ -737,51 +420,54 @@ function notifyResultWatchers(lottery, result) {
       const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
       if (publicKey && privateKey && user.pushSubscription) {
         webpush.setVapidDetails(subject, publicKey, privateKey);
-        webpush.sendNotification(user.pushSubscription, JSON.stringify({
-          title: 'Result notification',
-          body: `${lottery.name}: your followed number ${w.number} appeared in the result for ${result.date}.`,
-          url: '/account',
-        })).catch(() => {});
+        webpush
+          .sendNotification(
+            user.pushSubscription,
+            JSON.stringify({
+              title: 'Result notification',
+              body: `${lottery.name}: your followed number ${w.number} appeared in the result for ${result.date}.`,
+              url: '/account',
+            })
+          )
+          .catch(() => {});
       }
-    } catch (e) { /* optional */ }
+    } catch (e) {
+      /* optional dependency/configuration */
+    }
   });
 }
 
-// ---------------------------------------------------------------------------
-// SCHEDULED PUBLISHING
-// ---------------------------------------------------------------------------
+// Checked on a short interval from server.js. Any result an admin scheduled
+// ahead of time (entered during the 15-minute closing window, but held back
+// until the official draw time) flips to published here, automatically,
+// even if nobody is looking at the admin panel at that exact moment.
 async function publishDueScheduledResults() {
   const nowIso = new Date().toISOString();
-  const due = (getPath(cache, 'results') || []).filter(
+  const due = (dbGet('results').value() || []).filter(
     (r) => r.published === false && r.scheduledFor && r.scheduledFor <= nowIso && !r.deletedAt
   );
   for (const result of due) {
-    await withWriteLock(async () => {
-      await pool.query(`UPDATE results SET published=true, updated_at=now() WHERE id=$1`, [result.id]);
-    });
-    const lottery = (getPath(cache, 'lotteries') || []).find(l => l.id === result.lotteryId);
+    dbGet('results').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
+    const lottery = dbGet('lotteries').find({ id: result.lotteryId }).value();
     if (lottery) { notifyResultWatchers(lottery, result); await startNewRound(result.lotteryId); }
   }
-  if (due.length) { await refreshCache(); await backupAppState(); }
+  if (due.length) await flushState();
 }
 
+// Same as above, for Special Lotteries (000-999 games) — a separate results
+// list, so a separate check, but otherwise identical behavior.
 async function publishDueScheduledSpecialResults() {
   const nowIso = new Date().toISOString();
-  const due = (getPath(cache, 'specialResults') || []).filter(
+  const due = (dbGet('specialResults').value() || []).filter(
     (r) => r.published === false && r.scheduledFor && r.scheduledFor <= nowIso && !r.deletedAt
   );
   for (const result of due) {
-    await withWriteLock(async () => {
-      await pool.query(`UPDATE special_results SET published=true, updated_at=now() WHERE id=$1`, [result.id]);
-    });
+    dbGet('specialResults').find({ id: result.id }).assign({ published: true, updatedAt: new Date().toISOString() }).write();
     await startNewSpecialRound(result.lotteryId);
   }
-  if (due.length) { await refreshCache(); await backupAppState(); }
+  if (due.length) await flushState();
 }
 
-// ---------------------------------------------------------------------------
-// AUTO STAR
-// ---------------------------------------------------------------------------
 function parseDrawMinutesForStar(drawTime) {
   if (!drawTime) return null;
   const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
@@ -795,7 +481,7 @@ function parseDrawMinutesForStar(drawTime) {
   }
   if (min > 59) return null;
   if (ap) {
-    if (h >= 13 && h <= 23) { /* legacy */ }
+    if (h >= 13 && h <= 23) { /* legacy 23:07pm-style values pass through as-is */ }
     else { if (h < 1 || h > 12) return null; if (h === 12) h = 0; if (ap === 'PM') h += 12; }
   }
   if (h < 0 || h > 23) return null;
@@ -810,11 +496,19 @@ function zonedNowForStar(timeZone) {
   return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute') };
 }
 
+// Shared engine behind both applyAutoStar (normal lotteries) and
+// applyAutoSpecialStar (Special Lotteries) — same algorithm, pointed at
+// whichever pair of collections/settings key it's given. Only does
+// anything when the relevant star-mode setting is 'auto'. Whichever
+// lottery most recently published today's result stays starred for 15
+// minutes; after that (or if nothing published recently), the star moves
+// to whichever lottery's draw time is coming up soonest, wrapping to
+// tomorrow once every lottery has already drawn for today.
 async function runAutoStar(lotteriesKey, resultsKey, starModeSettingPath) {
-  const mode = getPath(cache, starModeSettingPath);
+  const mode = dbGet(starModeSettingPath).value();
   if (mode !== 'auto') return;
 
-  const lotteries = getPath(cache, lotteriesKey) || [];
+  const lotteries = dbGet(lotteriesKey).value() || [];
   if (!lotteries.length) return;
 
   const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
@@ -822,7 +516,7 @@ async function runAutoStar(lotteriesKey, resultsKey, starModeSettingPath) {
   const today = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
   const nowMinutes = now.hour * 60 + now.minute;
   const nowMs = Date.now();
-  const results = getPath(cache, resultsKey) || [];
+  const results = dbGet(resultsKey).value() || [];
 
   let recent = null;
   lotteries.forEach((lottery) => {
@@ -854,123 +548,88 @@ async function runAutoStar(lotteriesKey, resultsKey, starModeSettingPath) {
   const alreadyCorrect = lotteries.every((l) => !!l.starred === (l.id === winnerId));
   if (alreadyCorrect) return;
 
-  const table = lotteriesKey === 'lotteries' ? 'lotteries' : 'special_lotteries';
-  await withWriteLock(async () => {
-    for (const l of lotteries) {
-      const shouldBeStarred = l.id === winnerId;
-      if (!!l.starred !== shouldBeStarred) {
-        await pool.query(`UPDATE ${table} SET starred=$1 WHERE id=$2`, [shouldBeStarred, l.id]);
-      }
+  lotteries.forEach((l) => {
+    const shouldBeStarred = l.id === winnerId;
+    if (!!l.starred !== shouldBeStarred) {
+      dbGet(lotteriesKey).find({ id: l.id }).assign({ starred: shouldBeStarred }).write();
     }
   });
-  await refreshCache();
-  await backupAppState();
+  await flushState();
 }
 
 async function applyAutoStar() { return runAutoStar('lotteries', 'results', 'settings.starMode'); }
 async function applyAutoSpecialStar() { return runAutoStar('specialLotteries', 'specialResults', 'settings.specialStarMode'); }
 
-// ---------------------------------------------------------------------------
-// ROUND MANAGEMENT
-// ---------------------------------------------------------------------------
+// A published result closes out that lottery's current betting round.
+// Rather than just marking a "since when" cutoff and filtering by it on every
+// read (which turned out not to survive a free-tier Render restart
+// reliably), this physically moves every current purchase for the lottery
+// out of the live `purchases` list and into `purchaseHistory`. That makes
+// "current round" trivially just "whatever is still in `purchases`" — no
+// timestamp comparison required — while `purchaseHistory` keeps a full,
+// permanent record for the Reports/Overview all-time totals and each user's
+// full purchase history.
 async function startNewRound(lotteryId) {
   const now = new Date().toISOString();
-  const toArchive = (getPath(cache, 'purchases') || []).filter(p => p.lotteryId === lotteryId);
+  const toArchive = dbGet('purchases').filter({ lotteryId }).value() || [];
   if (toArchive.length) {
-    await withWriteLock(async () => {
-      await pool.query(`UPDATE purchases SET round_ended_at=now() WHERE lottery_id=$1 AND round_ended_at IS NULL`, [lotteryId]);
-    });
+    dbGet('purchases').remove({ lotteryId });
+    const historyChain = dbGet('purchaseHistory');
+    toArchive.forEach((p) => historyChain.push({ ...p, roundEndedAt: now }));
   }
-  await withWriteLock(async () => {
-    await pool.query(`UPDATE lotteries SET current_round_start_at=now() WHERE id=$1`, [lotteryId]);
-  });
-  await refreshCache();
-  await backupAppState();
+  dbGet('lotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: now });
+  await persistState(true);
 }
 
+// Same round-reset behavior as startNewRound, for Special Lotteries.
 async function startNewSpecialRound(lotteryId) {
   const now = new Date().toISOString();
-  const toArchive = (getPath(cache, 'specialPurchases') || []).filter(p => p.lotteryId === lotteryId);
+  const toArchive = dbGet('specialPurchases').filter({ lotteryId }).value() || [];
   if (toArchive.length) {
-    await withWriteLock(async () => {
-      await pool.query(`UPDATE special_purchases SET round_ended_at=now() WHERE lottery_id=$1 AND round_ended_at IS NULL`, [lotteryId]);
-    });
+    dbGet('specialPurchases').remove({ lotteryId });
+    const historyChain = dbGet('specialPurchaseHistory');
+    toArchive.forEach((p) => historyChain.push({ ...p, roundEndedAt: now }));
   }
-  await withWriteLock(async () => {
-    await pool.query(`UPDATE special_lotteries SET current_round_start_at=now() WHERE id=$1`, [lotteryId]);
-  });
-  await refreshCache();
-  await backupAppState();
+  dbGet('specialLotteries').find({ id: lotteryId }).assign({ currentRoundStartAt: now });
+  await persistState(true);
 }
 
+// Every purchase ever made for a lottery/user — current round plus every
+// past round already archived by startNewRound. Used for all-time totals
+// (Reports/Overview) and full purchase history views.
 function allPurchasesEverMade() {
-  return (getPath(cache, 'purchases') || []).concat(getPath(cache, 'purchaseHistory') || []);
+  return (dbGet('purchases').value() || []).concat(dbGet('purchaseHistory').value() || []);
 }
 
+// Same as allPurchasesEverMade, for Special Lotteries.
 function allSpecialPurchasesEverMade() {
-  return (getPath(cache, 'specialPurchases') || []).concat(getPath(cache, 'specialPurchaseHistory') || []);
+  return (dbGet('specialPurchases').value() || []).concat(dbGet('specialPurchaseHistory').value() || []);
 }
 
-// ---------------------------------------------------------------------------
-// HEALTH & BACKUP
-// ---------------------------------------------------------------------------
 async function healthCheck() {
   if (!postgresEnabled || !pool) return { ok: false, database: 'not-configured' };
   try { await pool.query('SELECT 1'); return { ok: true, database: 'postgresql' }; }
   catch (e) { console.error('Database health check failed:', e.message); return { ok: false, database: 'postgresql' }; }
 }
-
 async function encryptedBackup() {
   if (!postgresEnabled || !pool) throw new Error('PostgreSQL is required for backups.');
   const keyText = process.env.BACKUP_ENCRYPTION_KEY; if (!keyText) throw new Error('BACKUP_ENCRYPTION_KEY is not configured.');
-  const safe = clone(cache);
-  (safe.users || []).forEach(u => { delete u.passwordHash; delete u.recoveryCodeHash; });
+  const safe = clone(state); (safe.users || []).forEach(u => { delete u.passwordHash; delete u.recoveryCodeHash; });
   if (safe.settings) { delete safe.settings.adminPasswordHash; delete safe.settings.adminTotpSecret; }
   const key = crypto.createHash('sha256').update(keyText).digest(); const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv); const data = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(safe))), cipher.final()]);
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-// ---------------------------------------------------------------------------
-// MODULE EXPORTS
-// ---------------------------------------------------------------------------
-const db = {
-  getInitError: () => initError,
-  get: dbGet,
-  set: dbSet,
-  defaults: dbDefaults,
-  value: () => clone(cache),
-  getState: () => clone(cache),
-  cleanupOldResults,
-  recordVisit,
-  getVisitStats,
-  healthCheck,
-  encryptedBackup,
-  getPool: () => pool,
-  ready,
-  isPostgres: () => postgresEnabled,
-  flush: async () => { await backupAppState(); },
-  persistNow: async () => { await refreshCache(); await backupAppState(); },
-  notifyResultWatchers,
-  publishDueScheduledResults,
-  publishDueScheduledSpecialResults,
-  applyAutoStar,
-  applyAutoSpecialStar,
-  startNewRound,
-  startNewSpecialRound,
-  allPurchasesEverMade,
-  allSpecialPurchasesEverMade,
-};
-
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, publishDueScheduledSpecialResults, applyAutoStar, applyAutoSpecialStar, startNewRound, startNewSpecialRound, allPurchasesEverMade, allSpecialPurchasesEverMade };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');
     if (process.env.NODE_ENV === 'production' && !process.env.BACKUP_ENCRYPTION_KEY) throw new Error('BACKUP_ENCRYPTION_KEY is required in production.');
-    if (postgresEnabled) await initPostgres();
+    if (postgresEnabled) await initPostgres(); else await ensureDefaults();
     readyResolve();
   } catch (err) {
     console.error('Database initialization failed:', err); initError = err; process.exitCode = 1; readyResolve();
   }
 })();
-
 module.exports = db;
