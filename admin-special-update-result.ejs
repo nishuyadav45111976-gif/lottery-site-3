@@ -17,7 +17,7 @@
   <input type="date" id="date" name="date" required />
 
   <label for="resultText">Result</label>
-  <input type="text" id="resultText" name="resultText" placeholder="e.g. 458 127 903" required />
+  <input type="text" id="resultText" name="resultText" placeholder="e.g. 458 127 903" pattern="\d{3}([\s,.\-]+\d{3})*" inputmode="numeric" title="One or more 3-digit numbers (000-999), separated by spaces, commas, or dashes" required />
 
   <% if (lottery.drawTime) { %>
     <label style="margin-top:14px;">When should this go live?</label>
@@ -89,19 +89,4 @@
   </div>
 <% } %>
 
-<script>
-  (function() {
-    document.querySelectorAll('form').forEach(function(form) {
-      form.addEventListener('submit', function() {
-        var btn = form.querySelector('button[type="submit"]');
-        if (!btn || btn.disabled) return;
-        var text = btn.textContent.trim().toLowerCase();
-        if (text.indexOf('save') === -1 && text.indexOf('add') === -1 && text.indexOf('change') === -1 && text.indexOf('update') === -1) return;
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent.trim();
-        btn.textContent = 'Saving...';
-      });
-    });
-  })();
-</script>
 <%- include('partial-footer') %>

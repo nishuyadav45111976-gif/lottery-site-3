@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('./db');
 const { requireLogin } = require('./middleware-auth');
-const { slugify, makeId, makeRecoveryCode, hashPassword, verifyPassword, isValidResultText } = require('./utils');
+const { slugify, makeId, makeRecoveryCode, hashPassword, verifyPassword, isValidResultText, isValidPhoneNumber } = require('./utils');
 const { authenticator } = require('otplib');
 
 // ---------- LOGIN / LOGOUT ----------
@@ -74,6 +74,7 @@ router.post('/login', (req, res) => {
     return req.session.regenerate((err) => {
       if (err) return res.status(500).send('Unable to start a secure admin session.');
       req.session.isAdmin = true;
+      req.session.adminLoginAt = Date.now();
       req.session.adminSessionVersion = Number(db.get('settings.adminSessionVersion').value() || 0);
       req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
       const log = db.get('auditLog').value() || [];
@@ -111,6 +112,7 @@ router.post('/2fa/setup', (req, res) => {
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('Unable to start a secure admin session.');
     req.session.isAdmin = true;
+    req.session.adminLoginAt = Date.now();
     req.session.adminSessionVersion = Number(db.get('settings.adminSessionVersion').value() || 0);
     req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
     logAction({ ip: req.ip }, 'Admin 2FA enabled', 'Authenticator setup completed');
@@ -207,8 +209,19 @@ router.get('/settings/2fa', (req, res) => {
 
 router.post('/settings', (req, res) => {
   const { contactNumber, contactLabel, contactType } = req.body;
+  const trimmedNumber = (contactNumber || '').trim();
+  if (!isValidPhoneNumber(trimmedNumber)) {
+    return res.render('admin-settings', {
+      currentName: db.get('settings.siteName').value() || 'Haryana Results',
+      currentContactNumber: trimmedNumber,
+      currentContactLabel: (contactLabel || '').trim() || 'Help & Queries',
+      currentContactType: contactType === 'whatsapp' ? 'whatsapp' : 'call',
+      error: 'Please enter a valid phone number (10-15 digits).',
+      passwordError: null,
+    });
+  }
   // Contact number/label are optional — leaving them blank hides the contact bar on the site
-  db.set('settings.contactNumber', (contactNumber || '').trim()).write();
+  db.set('settings.contactNumber', trimmedNumber).write();
   db.set('settings.contactLabel', (contactLabel || '').trim() || 'Help & Queries').write();
   db.set('settings.contactType', contactType === 'whatsapp' ? 'whatsapp' : 'call').write();
   logAction(req, 'Settings updated', 'Contact details updated');
@@ -399,9 +412,20 @@ router.get('/', async (req, res) => {
   const usersSpark = last7DaySeries(users, () => 1);
   const ticketsSpark = last7DaySeries(purchases, (p) => Number(p.tickets) || 0);
 
+  const lastBackupStatus = db.get('settings.lastBackupStatus').value() || null;
+  const uptimeSeconds = Math.floor(process.uptime());
+  const uptimeHours = Math.floor(uptimeSeconds / 3600);
+  const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
+  const siteHealth = {
+    database: dbHealth.ok,
+    lastBackupStatus,
+    uptimeText: uptimeHours > 0 ? `${uptimeHours}h ${uptimeMinutes}m` : `${uptimeMinutes}m`,
+  };
+
   res.render('admin-dashboard', {
     lotteries, error: null, recentActivity, sparklinePoints,
     starMode: db.get('settings.starMode').value() || 'manual',
+    siteHealth,
     quickSummary: { users: users.length, totalTickets, totalAmount, lotteries: lotteries.length, database: dbHealth.ok, ticketsToday, usersThisMonth, usersSpark, ticketsSpark },
   });
 });
@@ -666,7 +690,7 @@ router.post('/lottery/:id/result', async (req, res) => {
   const tz=process.env.LOTTERY_TIMEZONE||'Asia/Kolkata'; const nowParts=new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()); const todayStr=`${nowParts.find(p=>p.type==='year').value}-${nowParts.find(p=>p.type==='month').value}-${nowParts.find(p=>p.type==='day').value}`;
   if (dateStr > todayStr) return res.render('admin-update-result',{lottery,results:activeResultsFor(lottery.id),trashedResults:trashedResultsFor(lottery.id),error:'A result date cannot be in the future.'});
 
-  if (!isValidResultText(resultText)) {
+  if (!isValidResultText(resultText, 2)) {
     return res.render('admin-update-result', {
       lottery,
       results: activeResultsFor(lottery.id),
@@ -1050,7 +1074,25 @@ router.get('/users/existing', (req, res) => {
     };
   });
   const notice=req.session.recoveryCodeNotice; if(notice){const target=enrichedUsers.find(u=>u.id===notice.userId);if(target)target.recoveryCodeNotice=notice.code;delete req.session.recoveryCodeNotice;}
-  res.render('admin-existing-users', { users: enrichedUsers, error: null, q: req.query.q || '' });
+
+  // Simple offset pagination — keeps the page fast to render once a site
+  // has built up hundreds/thousands of users, instead of always rendering
+  // every single one.
+  enrichedUsers.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const perPage = 25;
+  const totalUsers = enrichedUsers.length;
+  const totalPages = Math.max(1, Math.ceil(totalUsers / perPage));
+  let page = Math.min(totalPages, Math.max(1, parseInt(req.query.page, 10) || 1));
+  // If a one-time recovery-code notice is waiting and no explicit page was
+  // requested, jump to whichever page that user actually falls on — so the
+  // notice never silently fails to show just because pagination moved them.
+  if (notice && !req.query.page) {
+    const idx = enrichedUsers.findIndex((u) => u.id === notice.userId);
+    if (idx !== -1) page = Math.floor(idx / perPage) + 1;
+  }
+  const pageUsers = enrichedUsers.slice((page - 1) * perPage, page * perPage);
+
+  res.render('admin-existing-users', { users: pageUsers, error: null, q: req.query.q || '', page, totalPages, totalUsers });
 });
 
 router.post('/users', (req, res) => {
@@ -1161,6 +1203,12 @@ router.post('/users/:id/password', (req, res) => {
 // grid — the same parser as the normal admin quick-entry, told to expect
 // 3-digit numbers.
 
+function allSpecialNumbers() {
+  const nums = [];
+  for (let i = 0; i < 1000; i++) nums.push(String(i).padStart(3, '0'));
+  return nums;
+}
+
 function getSpecialLotteriesWithLatest() {
   const lotteries = db.get('specialLotteries').value() || [];
   const allPurchases = db.get('specialPurchases').value() || [];
@@ -1181,7 +1229,27 @@ function getSpecialLotteriesWithLatest() {
       (acc, p) => ({ tickets: acc.tickets + (Number(p.tickets) || 0), amount: acc.amount + (Number(p.amount) || 0) }),
       { tickets: 0, amount: 0 }
     );
-    return { ...lottery, latestResult, updatedToday, purchaseTotals, entryStatus: lotteryEntryStatus(lottery) };
+
+    // Same "lowest amount" callout as the normal lotteries — the number
+    // carrying the least money so far this round, computed over the full
+    // 000-999 range so an untouched number can win rather than tying with
+    // whichever number happens to be the only one purchased.
+    const byNumber = {};
+    allSpecialNumbers().forEach((n) => { byNumber[n] = { amount: 0, tickets: 0 }; });
+    lotteryPurchases.forEach((p) => {
+      const n = String(p.number).padStart(3, '0');
+      if (!byNumber[n]) byNumber[n] = { amount: 0, tickets: 0 };
+      byNumber[n].amount += Number(p.amount) || 0;
+      byNumber[n].tickets += Number(p.tickets) || 0;
+    });
+    const allNums = Object.keys(byNumber);
+    const hasAnyPurchase = allNums.some((n) => byNumber[n].amount > 0 || byNumber[n].tickets > 0);
+    let lowestNumber = null;
+    if (hasAnyPurchase) {
+      lowestNumber = allNums.reduce((worst, n) => (byNumber[n].amount < byNumber[worst].amount ? n : worst), allNums[0]);
+    }
+
+    return { ...lottery, latestResult, updatedToday, purchaseTotals, entryStatus: lotteryEntryStatus(lottery), lowestNumber };
   });
 }
 
@@ -1326,8 +1394,8 @@ router.post('/special/lottery/:id/result', async (req, res) => {
   const todayStr = `${nowParts.find(p => p.type === 'year').value}-${nowParts.find(p => p.type === 'month').value}-${nowParts.find(p => p.type === 'day').value}`;
   if (dateStr > todayStr) return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'A result date cannot be in the future.' });
 
-  if (!isValidResultText(resultText)) {
-    return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'Result should only contain numbers — please check for typos.' });
+  if (!isValidResultText(resultText, 3)) {
+    return res.render('admin-special-update-result', { lottery, results: activeSpecialResultsFor(lottery.id), trashedResults: trashedSpecialResultsFor(lottery.id), error: 'Result should only contain 3-digit numbers (000-999) — please check for typos.' });
   }
 
   let scheduledFor = null;

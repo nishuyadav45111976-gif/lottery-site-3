@@ -33,13 +33,18 @@ function formatTimestamp(iso) {
   });
 }
 
+// Turns a name into a URL-safe slug ("Rewari Special" -> "rewari-special").
+// Falls back to a short random id when the input has no a-z/0-9 characters
+// at all (e.g. pure Hindi text) so a lottery never ends up with an empty or
+// colliding slug.
 function slugify(text) {
-  return text
+  const base = text
     .toString()
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '');
+  return base || `lottery-${crypto.randomBytes(4).toString('hex')}`;
 }
 
 function makeId() {
@@ -59,11 +64,32 @@ function digitsOnly(text) {
   return (text || '').replace(/[^0-9]/g, '');
 }
 
+// A phone number should have 10-15 digits once formatting (spaces, dashes,
+// a leading +) is stripped — covers a plain 10-digit Indian mobile number
+// up to a full number with country code. Empty is valid too, since the
+// contact bar field is optional and blank just hides it.
+function isValidPhoneNumber(text) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return true;
+  const digits = digitsOnly(trimmed);
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 // A lottery result should just be numbers (optionally several, separated by
 // spaces/commas/dashes) — this catches accidental typos like stray letters
-// before they get posted to the public site.
-function isValidResultText(text) {
-  return /^[0-9][0-9\s,.\-]*$/.test((text || '').trim());
+// before they get posted to the public site. Pass `digits` (2 for normal
+// lotteries, 3 for Special Lottery) to also require every individual number
+// in the result be exactly that many digits long — useful for catching a
+// result typed into the wrong lottery type. Omit it to keep the original,
+// more permissive check (any digit-led string).
+function isValidResultText(text, digits) {
+  const trimmed = (text || '').trim();
+  if (!/^[0-9][0-9\s,.\-]*$/.test(trimmed)) return false;
+  if (!digits) return true;
+  const tokens = trimmed.split(/[\s,.\-]+/).filter(Boolean);
+  if (!tokens.length) return false;
+  const re = new RegExp(`^\\d{${digits}}$`);
+  return tokens.every((t) => re.test(t));
 }
 
 module.exports = {
@@ -75,4 +101,5 @@ module.exports = {
   verifyPassword,
   formatTimestamp,
   isValidResultText,
+  isValidPhoneNumber,
 };

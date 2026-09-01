@@ -47,4 +47,15 @@
     </div>
   <% }) %>
 </div>
+<% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+  <div class="pagination-row" style="display:flex; justify-content:center; align-items:center; gap:14px; margin:20px 0;">
+    <% if (page > 1) { %>
+      <a class="btn secondary" href="/admin/users/existing?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">← Prev</a>
+    <% } %>
+    <span class="subtitle" style="margin:0;">Page <%= page %> of <%= totalPages %> (<%= totalUsers %> users)</span>
+    <% if (page < totalPages) { %>
+      <a class="btn secondary" href="/admin/users/existing?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">Next →</a>
+    <% } %>
+  </div>
+<% } %>
 <%- include('partial-footer') %>

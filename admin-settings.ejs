@@ -17,7 +17,7 @@
   <input type="text" id="contactLabel" name="contactLabel" value="<%= currentContactLabel %>" placeholder="Help & Queries" />
 
   <label for="contactNumber">Contact Number</label>
-  <input type="text" id="contactNumber" name="contactNumber" value="<%= currentContactNumber %>" placeholder="e.g. +91 98765 43210" />
+  <input type="tel" id="contactNumber" name="contactNumber" value="<%= currentContactNumber %>" placeholder="e.g. +91 98765 43210" pattern="[0-9+\s\-]{10,20}" title="10-15 digits, plus optional +, spaces, or dashes" />
   <p class="subtitle" style="margin-top:6px; font-size:0.82rem;">Shown highlighted at the bottom of every page. Leave the number blank to hide it.</p>
 
   <label for="contactType">When tapped, this number should</label>
@@ -57,19 +57,4 @@
 <p class="subtitle">Download everything on this site — lotteries, results, and ticket purchase records — as a single file you can keep for yourself.</p>
 <a class="btn secondary" href="/admin/settings/backup">Download Backup</a>
 
-<script>
-  (function() {
-    document.querySelectorAll('form').forEach(function(form) {
-      form.addEventListener('submit', function() {
-        var btn = form.querySelector('button[type="submit"]');
-        if (!btn || btn.disabled) return;
-        var text = btn.textContent.trim().toLowerCase();
-        if (text.indexOf('save') === -1 && text.indexOf('add') === -1 && text.indexOf('change') === -1 && text.indexOf('update') === -1) return;
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent.trim();
-        btn.textContent = 'Saving...';
-      });
-    });
-  })();
-</script>
 <%- include('partial-footer') %>

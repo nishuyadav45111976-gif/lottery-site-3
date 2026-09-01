@@ -101,6 +101,35 @@ function sparklinePoints(series, w, h) {
     <span style="font-size:1.4rem; opacity:0.5;">›</span>
   </a>
 
+  <% if (typeof siteHealth !== 'undefined') { %>
+  <div class="card" id="siteHealthCard">
+    <h2>🩺 Site Health</h2>
+    <div class="card-stats">
+      <div>
+        <div class="card-stat-value"><%= siteHealth.database ? '✓ Connected' : '✗ Down' %></div>
+        <div class="card-stat-label">Database</div>
+      </div>
+      <div>
+        <div class="card-stat-value"><%= siteHealth.uptimeText %></div>
+        <div class="card-stat-label">Server uptime</div>
+      </div>
+      <div>
+        <% if (siteHealth.lastBackupStatus) { %>
+          <div class="card-stat-value"><%= siteHealth.lastBackupStatus.ok ? '✓ OK' : '✗ Failed' %></div>
+        <% } else { %>
+          <div class="card-stat-value">—</div>
+        <% } %>
+        <div class="card-stat-label">Last backup</div>
+      </div>
+    </div>
+    <% if (siteHealth.lastBackupStatus && !siteHealth.lastBackupStatus.ok) { %>
+      <div class="error-msg" style="margin-top:10px;">⚠️ Last backup failed at <%= new Date(siteHealth.lastBackupStatus.at).toLocaleString('en-IN') %><% if (siteHealth.lastBackupStatus.detail) { %>: <%= siteHealth.lastBackupStatus.detail %><% } %></div>
+    <% } else if (siteHealth.lastBackupStatus) { %>
+      <p class="subtitle" style="margin-top:8px;">Last successful backup: <%= new Date(siteHealth.lastBackupStatus.at).toLocaleString('en-IN') %></p>
+    <% } %>
+  </div>
+  <% } %>
+
   <div class="card" id="starModeCard">
     <h2>⭐ Star Mode</h2>
     <p class="subtitle">Manual: you pick the starred lottery yourself. Automatic: the star follows whichever lottery is closest to its draw, and stays on the one that just published for 15 minutes.</p>

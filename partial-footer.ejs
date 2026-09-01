@@ -70,6 +70,34 @@
     </script>
   <% } %>
 
+  <% if (typeof adminSessionExpiresAt !== 'undefined' && adminSessionExpiresAt) { %>
+    <div id="sessionExpiryWarning" class="flash-msg" style="display:none; position:fixed; left:12px; right:12px; bottom:78px; z-index:9998; background:#b8860b; color:#fff; text-align:center;">
+      ⏳ Your session expires soon — save any unsaved changes.
+    </div>
+    <script>
+      (function () {
+        var expiresAt = <%= adminSessionExpiresAt %>;
+        var warnEl = document.getElementById('sessionExpiryWarning');
+        var WARN_BEFORE_MS = 5 * 60 * 1000; // show the banner in the last 5 minutes
+        function check() {
+          var remaining = expiresAt - Date.now();
+          if (remaining <= 0) {
+            warnEl.textContent = '⏳ Your session has expired — please log in again.';
+            warnEl.style.display = 'block';
+            return;
+          }
+          if (remaining <= WARN_BEFORE_MS) {
+            var mins = Math.max(1, Math.ceil(remaining / 60000));
+            warnEl.textContent = '⏳ Your session expires in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' — save any unsaved changes.';
+            warnEl.style.display = 'block';
+          }
+        }
+        check();
+        setInterval(check, 30 * 1000);
+      })();
+    </script>
+  <% } %>
+
   <% if (typeof contactNumber !== 'undefined' && contactNumber) { %>
     <div class="contact-bar">
       <span class="contact-label"><%= contactLabel %>:</span>

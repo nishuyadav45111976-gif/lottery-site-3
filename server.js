@@ -1,13 +1,3 @@
-/*
- * RATE LIMITING & CSP CHANGES
- * - express-rate-limit protects login, ticket submission, and admin result endpoints.
- * - Login pages (/login, /admin/login): 5 attempts per 15 min per IP (POST only).
- * - Ticket submissions: 20 per 15 min per user ID.
- * - Admin result updates: 10 per 15 min per admin.
- * - Content Security Policy is now enforced (was previously disabled).
- * - Trust proxy hops are read from TRUST_PROXY_HOPS env var (default 1).
- */
-
 require("dotenv").config();
 
 if (process.env.NODE_ENV !== "production") {
@@ -35,7 +25,6 @@ if (process.env.LOTTERY_TIMEZONE !== "Asia/Kolkata") {
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const PgSession = require('connect-pg-simple')(session);
@@ -50,30 +39,16 @@ const userRoutes = require('./routes-user').router;
 
 const app = express();
 
-// Trust proxy hops configurable via env (default 1) for accurate req.ip behind reverse proxies.
-const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
-app.set('trust proxy', Number.isNaN(trustProxyHops) ? 1 : trustProxyHops);
+// Trust the platform's reverse proxy (Replit, Render, etc.) so req.ip reflects
+// the real visitor instead of the proxy — needed for accurate login lockouts.
+app.set('trust proxy', 1);
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname);
 
-// Production security headers with proper CSP.
-// FIX: Added useDefaults: false so custom directives fully override defaults.
-// This allows inline onclick handlers used by the admin three-dot menu.
+// Production security headers.
 app.use(helmet({
-  contentSecurityPolicy: {
-    useDefaults: false,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'"],
-      connectSrc: ["'self'"],
-      frameAncestors: ["'none'"],
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -91,73 +66,14 @@ app.get('/health', async (req, res) => {
   res.status(result.ok ? 200 : 503).json({ status: result.ok ? 'ok' : 'degraded', database: result.database });
 });
 
-// ============================================================
-// RATE LIMITERS — MUST be defined and applied BEFORE routes
-// so they actually block requests instead of running after.
-// ============================================================
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-  handler: (req, res) => {
-    res.status(429).send('Too many login attempts. Please try again after 15 minutes.');
-  }
-});
-
-const ticketLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => (req.session && req.session.userId) ? req.session.userId : req.ip,
-  handler: (req, res) => {
-    res.status(429).send('Too many ticket submissions. Please try again later.');
-  }
-});
-
-const adminResultLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-  handler: (req, res) => {
-    res.status(429).send('Too many result updates. Please try again later.');
-  }
-});
-
-// Helper: only apply rate limiter to POST requests.
-// GET requests (showing the login form) should not count as attempts.
-function postOnly(limiter) {
-  return (req, res, next) => {
-    if (req.method === 'POST') return limiter(req, res, next);
-    next();
-  };
-}
-
-// Apply rate limiters BEFORE routes so they actually block.
-// Only POST requests count as login attempts.
-app.use('/admin/login', postOnly(loginLimiter));
-app.use('/login', postOnly(loginLimiter));
-app.use('/lottery/:id/purchases-multi', ticketLimiter);
-app.use('/lottery/:id/purchases/:number', ticketLimiter);
-app.use('/account/tickets/:id/edit', ticketLimiter);
-app.use('/admin/lottery/:id/result', adminResultLimiter);
-app.use('/admin/special/lottery/:id/result', adminResultLimiter);
-
-// ============================================================
-// ROUTES — mounted AFTER rate limiters so limiters run first
-// ============================================================
-
 const sessionPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined, max: 5 }) : null;
+const ADMIN_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 const sessionOptions = {
+  // A real secret is required by the application; there is no hard-coded fallback.
   secret: sessionSecret || crypto.randomBytes(48).toString('hex'),
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 8, httpOnly: true, sameSite: 'lax', secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production' },
+  cookie: { maxAge: ADMIN_SESSION_MAX_AGE_MS, httpOnly: true, sameSite: 'lax', secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production' },
 };
 if (sessionPool) sessionOptions.store = new PgSession({ pool: sessionPool, tableName: 'user_sessions', createTableIfMissing: true });
 app.use(session(sessionOptions));
@@ -180,6 +96,7 @@ app.use((req, res, next) => {
 });
 
 // Make the site name (and other shared values) available to every view
+// without passing them manually on every single render() call
 app.use((req, res, next) => {
   res.locals.siteName = db.get('settings.siteName').value() || 'Haryana Results';
   res.locals.contactNumber = db.get('settings.contactNumber').value() || '';
@@ -188,16 +105,28 @@ app.use((req, res, next) => {
   res.locals.contactDigits = digitsOnly(res.locals.contactNumber);
   res.locals.currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
   res.locals.noIndex = req.path.startsWith('/admin') || req.path.startsWith('/account') || req.path === '/login' || req.path === '/recover';
+  // Lets shared partials (header/footer) know we're inside the admin panel
+  // without every single admin view having to pass it in manually.
   res.locals.isAdminPage = req.path.startsWith('/admin');
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
+  // Lets the admin panel be installed to the home screen as its own app,
+  // separate from the public site's installability (enableServiceWorker
+  // below, which deliberately excludes /admin).
   res.locals.enableAdminInstall = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.userSession = !!(req.session && req.session.userId);
 
+  // Language for the public site (English/Hindi). Persisted in the session so
+  // it sticks across pages without needing a cookie-parsing dependency.
   const lang = (req.session && req.session.lang === 'hi') ? 'hi' : 'en';
   res.locals.lang = lang;
   res.locals.t = translator(lang);
   res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
+  res.locals.adminSessionExpiresAt = (req.session && req.session.isAdmin && req.session.adminLoginAt)
+    ? req.session.adminLoginAt + ADMIN_SESSION_MAX_AGE_MS
+    : null;
+  // Keep user login/account links out of the public-facing results pages.
+  // They remain available on the private /account and /login screens.
   res.locals.isUserArea = req.path === '/login' || req.path.startsWith('/account') || req.path === '/recover';
   req.session.visitorId = req.session.visitorId || crypto.randomUUID();
   res.locals.visitorId = req.session.visitorId;
@@ -209,7 +138,9 @@ app.use('/', publicRoutes);
 app.use('/', userRoutes);
 app.use('/admin', adminRoutes);
 
-// Central production error handler.
+// Central production error handler. Do not leak database/stack details to users;
+// keep the diagnostic in server logs instead so a broken write never becomes a
+// blank/generic proxy error with no useful server-side trace.
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   console.error('Unhandled request error:', err && err.stack ? err.stack : err);
@@ -220,28 +151,31 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
 });
 
-// Scheduled result publishing
+// Publishes any result an admin scheduled ahead of time (entered during the
+// closing window, held back until draw time) the moment its time arrives —
+// no admin needs to be online at that exact moment for it to go live.
 setInterval(() => {
   db.publishDueScheduledResults().catch((e) => console.error('Scheduled publish check failed:', e));
   db.publishDueScheduledSpecialResults().catch((e) => console.error('Scheduled special publish check failed:', e));
 }, 30 * 1000);
 
-// Auto-star
+// Keeps the "starred" lottery current when Automatic star mode is on (see
+// db.applyAutoStar) — no-ops instantly when star mode is set to Manual.
 setInterval(() => {
   db.applyAutoStar().catch((e) => console.error('Auto-star check failed:', e));
   db.applyAutoSpecialStar().catch((e) => console.error('Special auto-star check failed:', e));
 }, 30 * 1000);
 
-// Cleanup old results
+// Automatically move results older than 40 days into the trash (see
+// db.cleanupOldResults). Run once on startup, then once a day after that.
 const removedOnStartup = db.cleanupOldResults();
 if (removedOnStartup > 0) {
   console.log(`Moved ${removedOnStartup} result(s) older than 40 days into the trash.`);
 }
 setInterval(() => {
   db.cleanupOldResults();
-}, 1000 * 60 * 60 * 24);
+}, 1000 * 60 * 60 * 24); // once a day
 
-// Automated backups
 if (process.env.BACKUP_INTERVAL_HOURS && Number(process.env.BACKUP_INTERVAL_HOURS) > 0) {
   const interval = Number(process.env.BACKUP_INTERVAL_HOURS) * 60 * 60 * 1000;
   const runBackup = () => { const { spawn } = require('child_process'); const child = spawn(process.execPath, [path.join(__dirname,'scripts-backup-postgres.js')], { stdio:'inherit' }); child.on('error', e => console.error('Automated backup failed:', e.message)); };
