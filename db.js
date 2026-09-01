@@ -5,7 +5,7 @@
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-const { hashPassword } = require('./utils');
+const { hashPassword, makeId } = require('./utils');
 
 const defaults = {
   lotteries: [], results: [], purchases: [], purchaseHistory: [], users: [], watchedNumbers: [],
@@ -18,6 +18,7 @@ const defaults = {
     faqText: 'When do results get posted?\nResults are posted as soon as possible after each draw closes, and sometimes automatically at the exact draw time if scheduled ahead of time by an admin.\n\nAre these official results?\nResults shown here are compiled for informational purposes. Please verify with the official source before acting on them.\n\nDo you sell tickets or accept payments?\nNo. This site only displays results — it does not sell tickets or handle real-money gambling.\n\nHow often is this page updated?\nThe page automatically refreshes with the latest result when you return to it after being away.',
     starMode: 'manual',
     specialStarMode: 'manual',
+    autoFillMissedResults: false,
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };
@@ -490,10 +491,10 @@ function parseDrawMinutesForStar(drawTime) {
 
 function zonedNowForStar(timeZone) {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   }).formatToParts(new Date());
   const get = (type) => Number(parts.find((p) => p.type === type).value);
-  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute') };
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute'), second: get('second') };
 }
 
 // Shared engine behind both applyAutoStar (normal lotteries) and
@@ -560,6 +561,92 @@ async function runAutoStar(lotteriesKey, resultsKey, starModeSettingPath) {
 async function applyAutoStar() { return runAutoStar('lotteries', 'results', 'settings.starMode'); }
 async function applyAutoSpecialStar() { return runAutoStar('specialLotteries', 'specialResults', 'settings.specialStarMode'); }
 
+// Checked on the same interval as the scheduled-publish/auto-star checks —
+// only does anything when settings.autoFillMissedResults is turned on.
+// The admin's window to post the real result by hand is the FIRST HALF of
+// the draw minute itself (":00" through ":29"). If nobody has posted
+// today's result by the SECOND HALF of that same minute (":30" onward),
+// this picks the number carrying the LEAST money this round (same "lowest
+// amount" number already shown on the dashboard cards) and posts it as the
+// result automatically — so the public page is never just left blank
+// because someone forgot, and the delay is seconds, not minutes.
+//
+// To avoid two lotteries on the same day both landing on the same number
+// (which would look suspicious), each pick avoids every number already
+// used by ANY lottery of the same kind (normal vs Special, checked
+// separately) today — manual or auto-filled — falling back to the lowest
+// number only when literally every number has already been used today
+// (practically never, since there are 100 numbers for normal lotteries and
+// 1000 for Special).
+const MISSED_RESULT_GRACE_SECONDS = 30;
+
+async function runAutoFillMissedResults(lotteriesKey, resultsKey, purchasesKey, digits, startRoundFn) {
+  if (!dbGet('settings.autoFillMissedResults').value()) return;
+
+  const lotteries = dbGet(lotteriesKey).value() || [];
+  if (!lotteries.length) return;
+
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const now = zonedNowForStar(tz);
+  const todayStr = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
+  const nowSeconds = now.hour * 3600 + now.minute * 60 + now.second;
+
+  const results = dbGet(resultsKey).value() || [];
+  const purchases = dbGet(purchasesKey).value() || [];
+
+  const candidates = lotteries.filter((lottery) => {
+    const drawMinutes = parseDrawMinutesForStar(lottery.drawTime);
+    if (drawMinutes == null) return false;
+    const dueSeconds = drawMinutes * 60 + MISSED_RESULT_GRACE_SECONDS;
+    // Same-day only — a draw time in the last 30 seconds before midnight is
+    // skipped rather than wrapping into tomorrow's check.
+    if (dueSeconds >= 86400 || nowSeconds < dueSeconds) return false;
+    return !results.some((r) => r.lotteryId === lottery.id && r.date === todayStr && !r.deletedAt && r.published !== false);
+  });
+  if (!candidates.length) return;
+
+  candidates.sort((a, b) => parseDrawMinutesForStar(a.drawTime) - parseDrawMinutesForStar(b.drawTime));
+
+  const usedToday = new Set(
+    results.filter((r) => r.date === todayStr && !r.deletedAt && r.published !== false).map((r) => String(r.resultText || '').trim())
+  );
+
+  const total = Math.pow(10, digits);
+  for (const lottery of candidates) {
+    const lotteryPurchases = purchases.filter((p) => p.lotteryId === lottery.id);
+    const byNumber = {};
+    const allNums = [];
+    for (let i = 0; i < total; i++) {
+      const n = String(i).padStart(digits, '0');
+      allNums.push(n);
+      byNumber[n] = 0;
+    }
+    lotteryPurchases.forEach((p) => {
+      const n = String(p.number).padStart(digits, '0');
+      byNumber[n] = (byNumber[n] || 0) + (Number(p.amount) || 0);
+    });
+    allNums.sort((a, b) => byNumber[a] - byNumber[b] || (a < b ? -1 : 1));
+
+    const chosen = allNums.find((n) => !usedToday.has(n)) || allNums[0];
+    usedToday.add(chosen);
+
+    const nowIso = new Date().toISOString();
+    dbGet(resultsKey).push({
+      id: makeId(), lotteryId: lottery.id, date: todayStr, resultText: chosen,
+      updatedAt: nowIso, scheduledFor: null, published: true, autoGenerated: true,
+    }).write();
+    await startRoundFn(lottery.id);
+
+    const log = dbGet('auditLog').value() || [];
+    log.push({ id: makeId(), action: 'Auto-filled missed result', detail: `${lottery.name} — ${chosen} (lowest-amount number, no manual result posted)`, ip: '', timestamp: nowIso });
+    dbSet('auditLog', log.slice(-200)).write();
+  }
+  await flushState();
+}
+
+async function applyAutoFillMissedResults() { return runAutoFillMissedResults('lotteries', 'results', 'purchases', 2, startNewRound); }
+async function applyAutoFillMissedSpecialResults() { return runAutoFillMissedResults('specialLotteries', 'specialResults', 'specialPurchases', 3, startNewSpecialRound); }
+
 // A published result closes out that lottery's current betting round.
 // Rather than just marking a "since when" cutoff and filtering by it on every
 // read (which turned out not to survive a free-tier Render restart
@@ -621,7 +708,7 @@ async function encryptedBackup() {
   return JSON.stringify({ version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') });
 }
 
-const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, publishDueScheduledSpecialResults, applyAutoStar, applyAutoSpecialStar, startNewRound, startNewSpecialRound, allPurchasesEverMade, allSpecialPurchasesEverMade };
+const db = { getInitError: () => initError, get: dbGet, set: dbSet, defaults: dbDefaults, value: () => clone(state), getState: () => clone(state), cleanupOldResults, recordVisit, getVisitStats, healthCheck, encryptedBackup, getPool: () => pool, ready, isPostgres: () => postgresEnabled, flush: () => flushState(), persistNow: () => persistState(true), notifyResultWatchers, publishDueScheduledResults, publishDueScheduledSpecialResults, applyAutoStar, applyAutoSpecialStar, applyAutoFillMissedResults, applyAutoFillMissedSpecialResults, startNewRound, startNewSpecialRound, allPurchasesEverMade, allSpecialPurchasesEverMade };
 (async () => {
   try {
     if (productionWithoutDb) throw new Error('DATABASE_URL is required in production. JSON fallback is disabled.');

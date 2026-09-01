@@ -142,6 +142,18 @@ function sparklinePoints(series, w, h) {
     </div>
   </div>
 
+  <div class="card" id="autoFillMissedResultsCard">
+    <h2>⚡ Auto-Fill Missed Results</h2>
+    <p class="subtitle">If a lottery's draw time passes with no result posted, the system automatically posts the number carrying the <strong>least money</strong> this round as the result — starting from the last 30 seconds of the draw minute (post the real result any time in the first 30 seconds and this won't trigger). Works for normal and Special Lotteries alike. If more than one lottery is missed the same day, each gets a different number where possible. Auto-filled results are clearly marked and you can still overwrite them with the real result at any time.</p>
+    <form method="POST" action="/admin/auto-fill-missed-results" style="margin-top:10px;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="mode-switch">
+        <button type="submit" name="enabled" value="off" class="<%= (typeof autoFillMissedResults === 'undefined' || !autoFillMissedResults) ? 'active' : '' %>">Off</button>
+        <button type="submit" name="enabled" value="on" class="<%= (typeof autoFillMissedResults !== 'undefined' && autoFillMissedResults) ? 'active' : '' %>">On</button>
+      </div>
+    </form>
+  </div>
+
   <div class="section-head"><h2>Your lotteries</h2></div>
 
   <% if (lotteries.length > 3) { %>

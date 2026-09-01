@@ -166,6 +166,18 @@ setInterval(() => {
   db.applyAutoSpecialStar().catch((e) => console.error('Special auto-star check failed:', e));
 }, 30 * 1000);
 
+// Auto-fills a missed result (with the lowest-amount number for that round)
+// the moment a lottery's draw minute passes its second half (":30" onward)
+// with no manual result posted — only when Auto-Fill Missed Results is
+// turned on in Admin settings. No-ops instantly when it's off. Checked
+// every 10 seconds (tighter than the other checks above) so the fill
+// lands close to the actual ":30" mark instead of drifting by up to
+// another 30 seconds.
+setInterval(() => {
+  db.applyAutoFillMissedResults().catch((e) => console.error('Auto-fill missed result check failed:', e));
+  db.applyAutoFillMissedSpecialResults().catch((e) => console.error('Special auto-fill missed result check failed:', e));
+}, 10 * 1000);
+
 // Automatically move results older than 40 days into the trash (see
 // db.cleanupOldResults). Run once on startup, then once a day after that.
 const removedOnStartup = db.cleanupOldResults();

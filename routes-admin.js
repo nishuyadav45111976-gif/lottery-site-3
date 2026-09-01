@@ -400,6 +400,7 @@ function sparklinePoints(values, width, height) {
 
 router.get('/', async (req, res) => {
   await db.applyAutoStar().catch(() => {});
+  await db.applyAutoFillMissedResults().catch(() => {});
   const dbHealth=await db.healthCheck();
   const lotteries=getLotteriesWithLatest(); const purchases=db.allPurchasesEverMade(); const users=db.get('users').value()||[]; const totalTickets=purchases.reduce((s,p)=>s+(Number(p.tickets)||0),0); const totalAmount=purchases.reduce((s,p)=>s+(Number(p.amount)||0),0);
   const recentActivity=(db.get('auditLog').value()||[]).slice(-4).reverse();
@@ -425,6 +426,7 @@ router.get('/', async (req, res) => {
   res.render('admin-dashboard', {
     lotteries, error: null, recentActivity, sparklinePoints,
     starMode: db.get('settings.starMode').value() || 'manual',
+    autoFillMissedResults: !!db.get('settings.autoFillMissedResults').value(),
     siteHealth,
     quickSummary: { users: users.length, totalTickets, totalAmount, lotteries: lotteries.length, database: dbHealth.ok, ticketsToday, usersThisMonth, usersSpark, ticketsSpark },
   });
@@ -511,6 +513,18 @@ router.post('/lottery/:id/edit', (req, res) => {
 
   logAction(req, 'Lottery updated', `${lottery.name} → ${name.trim()}`);
   redirectWithFlash(res, '/admin', 'Lottery updated');
+});
+
+// ---------- AUTO-FILL MISSED RESULTS ----------
+// When turned on: if a lottery's draw time passes with no result posted
+// (checked 20 minutes after draw time, then every 30s), the system posts
+// the number carrying the least money this round as the result — for both
+// normal and Special Lotteries. Off by default; toggled from the dashboard.
+router.post('/auto-fill-missed-results', (req, res) => {
+  const enabled = req.body.enabled === 'on';
+  db.set('settings.autoFillMissedResults', enabled).write();
+  logAction(req, 'Auto-Fill Missed Results changed', enabled ? 'Enabled' : 'Disabled');
+  redirectWithFlash(res, '/admin', enabled ? 'Auto-Fill Missed Results enabled.' : 'Auto-Fill Missed Results turned off.');
 });
 
 // ---------- STAR / UNSTAR A LOTTERY (only one at a time) ----------
@@ -1263,6 +1277,7 @@ function trashedSpecialResultsFor(lotteryId) {
 
 router.get('/special', async (req, res) => {
   await db.applyAutoSpecialStar().catch(() => {});
+  await db.applyAutoFillMissedSpecialResults().catch(() => {});
   const lotteries = getSpecialLotteriesWithLatest();
   const purchases = db.allSpecialPurchasesEverMade();
   const totalTickets = purchases.reduce((s, p) => s + (Number(p.tickets) || 0), 0);

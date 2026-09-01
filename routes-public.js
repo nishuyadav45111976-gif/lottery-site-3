@@ -158,6 +158,7 @@ router.get('/lang/:code', (req, res) => {
 router.get('/', async (req, res) => {
   await trackVisit(req);
   await db.applyAutoStar().catch(() => {});
+  await db.applyAutoFillMissedResults().catch(() => {});
   const lotteries = db.get('lotteries').value() || [];
 
   const lotteriesWithResults = lotteries.map((lottery) => {
@@ -181,6 +182,7 @@ router.get('/', async (req, res) => {
   const mainLotteries = lotteriesWithResults.filter((l) => l.isMain).slice(0, 4);
 
   await db.applyAutoSpecialStar().catch(() => {});
+  await db.applyAutoFillMissedSpecialResults().catch(() => {});
   const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
   const todayForSpecial = dateString(zonedNow(tz));
   const specialLotteriesAll = (db.get('specialLotteries').value() || []).map((lottery) => {
