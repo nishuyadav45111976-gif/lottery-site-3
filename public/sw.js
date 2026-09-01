@@ -7,7 +7,7 @@ const CACHE_NAME = 'lottery-site-v3-public-only';
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(['/', '/css/style.css', '/favicon.svg']))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(['/', '/style.css', '/favicon.svg']))
   );
 });
 
