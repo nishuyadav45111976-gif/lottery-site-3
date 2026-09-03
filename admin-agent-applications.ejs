@@ -1,0 +1,49 @@
+<%- include('partial-header', { title: 'Agent Applications' , isAdminPage: true }) %>
+
+<a class="back-link" href="/admin/agent-page">&larr; Agent Page</a>
+<h1>📝 Agent Applications</h1>
+<p class="subtitle"><%= totalApplications %> submitted so far.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+
+<% if (applications.length === 0) { %>
+  <div class="empty-state">No applications submitted yet.</div>
+<% } else { %>
+  <div class="table-scroll-wrap">
+  <table>
+    <thead><tr><th>Name</th><th>Phone</th><th>Area</th><th>Message</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      <% applications.forEach(function(a) { %>
+        <tr>
+          <td><%= a.name %></td>
+          <td><a href="tel:<%= a.phone %>"><%= a.phone %></a></td>
+          <td><%= a.area || '—' %></td>
+          <td style="max-width:220px; white-space:normal;"><%= a.message || '—' %></td>
+          <td class="dim-cell"><%= new Date(a.createdAt).toLocaleString('en-IN') %></td>
+          <td>
+            <form method="POST" action="/admin/agent-applications/<%= a.id %>/delete" onsubmit="return confirm('Delete this application?');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<% if (totalPages > 1) { %>
+  <div class="pagination-row" style="display:flex; justify-content:center; align-items:center; gap:14px; margin:20px 0;">
+    <% if (page > 1) { %>
+      <a class="btn secondary" href="/admin/agent-applications?page=<%= page - 1 %>">← Prev</a>
+    <% } %>
+    <span class="subtitle" style="margin:0;">Page <%= page %> of <%= totalPages %></span>
+    <% if (page < totalPages) { %>
+      <a class="btn secondary" href="/admin/agent-applications?page=<%= page + 1 %>">Next →</a>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('partial-footer') %>

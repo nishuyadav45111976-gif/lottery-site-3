@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('./db');
-const { formatTimestamp } = require('./utils');
+const { formatTimestamp, makeId, isValidPhoneNumber } = require('./utils');
 
 // Results the public site should ever show — excludes soft-deleted ones
 // still sitting in the admin's trash, and excludes results an admin has
@@ -472,6 +472,53 @@ router.get('/admin-manifest.json', (req, res) => {
       2
     )
   );
+});
+
+// ---------- BECOME AN AGENT ----------
+// Everything shown on this page (title, subtitle, the three feature
+// blocks) comes from settings — fully editable from Admin → Agent Page,
+// with no hard-coded wording about money/commissions baked in, since that
+// framing may not fit every deployment of this site.
+function agentPageContent() {
+  return {
+    pageTitle: db.get('settings.agentPageTitle').value() || 'Become an Agent',
+    pageSubtitle: db.get('settings.agentPageSubtitle').value() || '',
+    features: [1, 2, 3].map((n) => ({
+      icon: db.get(`settings.agentFeature${n}Icon`).value() || '',
+      title: db.get(`settings.agentFeature${n}Title`).value() || '',
+      desc: db.get(`settings.agentFeature${n}Desc`).value() || '',
+    })),
+  };
+}
+
+router.get('/agent', async (req, res) => {
+  await trackVisit(req);
+  if (!(db.get('settings.agentPageEnabled').value())) {
+    return res.status(404).render('404');
+  }
+  res.render('agent', { ...agentPageContent(), error: null, submitted: false, formValues: null });
+});
+
+router.post('/agent/apply', async (req, res) => {
+  if (!(db.get('settings.agentPageEnabled').value())) {
+    return res.status(404).render('404');
+  }
+  const name = (req.body.name || '').trim();
+  const phone = (req.body.phone || '').trim();
+  const area = (req.body.area || '').trim();
+  const message = (req.body.message || '').trim();
+  const formValues = { name, phone, area, message };
+
+  if (!name) return res.render('agent', { ...agentPageContent(), error: 'Please enter your full name.', submitted: false, formValues });
+  if (!phone || !isValidPhoneNumber(phone)) return res.render('agent', { ...agentPageContent(), error: 'Please enter a valid phone number (10-15 digits).', submitted: false, formValues });
+  if (name.length > 100 || area.length > 100 || message.length > 1000) return res.render('agent', { ...agentPageContent(), error: 'One of the fields is too long — please shorten it.', submitted: false, formValues });
+
+  db.get('agentApplications').push({
+    id: makeId(), name, phone, area, message,
+    createdAt: new Date().toISOString(), reviewed: false,
+  }).write();
+
+  res.render('agent', { ...agentPageContent(), error: null, submitted: true, formValues: null });
 });
 
 module.exports = router;

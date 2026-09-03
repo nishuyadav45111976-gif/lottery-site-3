@@ -1546,4 +1546,61 @@ router.post('/special/quick-purchase', (req, res) => {
   return res.redirect(backPath + '?flash=' + encodeURIComponent(`${numbers.length} number${numbers.length === 1 ? '' : 's'} added to ${lottery.name}.`));
 });
 
+// ---------- BECOME AN AGENT PAGE ----------
+router.get('/agent-page', (req, res) => {
+  res.render('admin-agent-settings', {
+    enabled: !!db.get('settings.agentPageEnabled').value(),
+    title: db.get('settings.agentPageTitle').value() || '',
+    subtitle: db.get('settings.agentPageSubtitle').value() || '',
+    f1icon: db.get('settings.agentFeature1Icon').value() || '', f1title: db.get('settings.agentFeature1Title').value() || '', f1desc: db.get('settings.agentFeature1Desc').value() || '',
+    f2icon: db.get('settings.agentFeature2Icon').value() || '', f2title: db.get('settings.agentFeature2Title').value() || '', f2desc: db.get('settings.agentFeature2Desc').value() || '',
+    f3icon: db.get('settings.agentFeature3Icon').value() || '', f3title: db.get('settings.agentFeature3Title').value() || '', f3desc: db.get('settings.agentFeature3Desc').value() || '',
+    error: null,
+  });
+});
+
+router.post('/agent-page', (req, res) => {
+  const title = (req.body.title || '').trim();
+  const subtitle = (req.body.subtitle || '').trim();
+  if (!title) {
+    return res.render('admin-agent-settings', {
+      enabled: !!db.get('settings.agentPageEnabled').value(), title, subtitle,
+      f1icon: req.body.f1icon || '', f1title: req.body.f1title || '', f1desc: req.body.f1desc || '',
+      f2icon: req.body.f2icon || '', f2title: req.body.f2title || '', f2desc: req.body.f2desc || '',
+      f3icon: req.body.f3icon || '', f3title: req.body.f3title || '', f3desc: req.body.f3desc || '',
+      error: 'Please enter a page title.',
+    });
+  }
+  db.set('settings.agentPageEnabled', req.body.enabled === 'on').write();
+  db.set('settings.agentPageTitle', title).write();
+  db.set('settings.agentPageSubtitle', subtitle).write();
+  db.set('settings.agentFeature1Icon', (req.body.f1icon || '').trim()).write();
+  db.set('settings.agentFeature1Title', (req.body.f1title || '').trim()).write();
+  db.set('settings.agentFeature1Desc', (req.body.f1desc || '').trim()).write();
+  db.set('settings.agentFeature2Icon', (req.body.f2icon || '').trim()).write();
+  db.set('settings.agentFeature2Title', (req.body.f2title || '').trim()).write();
+  db.set('settings.agentFeature2Desc', (req.body.f2desc || '').trim()).write();
+  db.set('settings.agentFeature3Icon', (req.body.f3icon || '').trim()).write();
+  db.set('settings.agentFeature3Title', (req.body.f3title || '').trim()).write();
+  db.set('settings.agentFeature3Desc', (req.body.f3desc || '').trim()).write();
+  logAction(req, 'Agent page updated', title);
+  redirectWithFlash(res, '/admin/agent-page', 'Agent page saved');
+});
+
+router.get('/agent-applications', (req, res) => {
+  const all = (db.get('agentApplications').value() || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const perPage = 25;
+  const totalApplications = all.length;
+  const totalPages = Math.max(1, Math.ceil(totalApplications / perPage));
+  const page = Math.min(totalPages, Math.max(1, parseInt(req.query.page, 10) || 1));
+  const applications = all.slice((page - 1) * perPage, page * perPage);
+  res.render('admin-agent-applications', { applications, page, totalPages, totalApplications });
+});
+
+router.post('/agent-applications/:id/delete', (req, res) => {
+  db.get('agentApplications').remove({ id: req.params.id }).write();
+  logAction(req, 'Agent application deleted', req.params.id);
+  redirectWithFlash(res, '/admin/agent-applications', 'Deleted');
+});
+
 module.exports = router;

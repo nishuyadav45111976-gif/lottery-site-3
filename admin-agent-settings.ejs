@@ -1,0 +1,75 @@
+<%- include('partial-header', { title: 'Agent Page' , isAdminPage: true }) %>
+
+<a class="back-link" href="/admin">&larr; Dashboard</a>
+<h1>🤝 Agent Page</h1>
+<p class="subtitle">Everything here is fully yours to edit — nothing is hard-coded, including any mention of money or commissions. Turn the page on once you're happy with the wording.</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash-msg">✓ <%= flash %></div>
+<% } %>
+<% if (error) { %>
+  <div class="error-msg"><%= error %></div>
+<% } %>
+
+<div class="card" style="margin-bottom:16px;">
+  <h2>Show the button on the site?</h2>
+  <p class="subtitle">When off, the "Become an Agent" button is hidden everywhere and the page itself returns a normal 404.</p>
+  <form method="POST" action="/admin/agent-page" id="agentToggleForm">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="title" value="<%= title %>">
+    <input type="hidden" name="subtitle" value="<%= subtitle %>">
+    <input type="hidden" name="f1icon" value="<%= f1icon %>"><input type="hidden" name="f1title" value="<%= f1title %>"><input type="hidden" name="f1desc" value="<%= f1desc %>">
+    <input type="hidden" name="f2icon" value="<%= f2icon %>"><input type="hidden" name="f2title" value="<%= f2title %>"><input type="hidden" name="f2desc" value="<%= f2desc %>">
+    <input type="hidden" name="f3icon" value="<%= f3icon %>"><input type="hidden" name="f3title" value="<%= f3title %>"><input type="hidden" name="f3desc" value="<%= f3desc %>">
+    <div class="mode-switch">
+      <button type="submit" name="enabled" value="off" class="<%= !enabled ? 'active' : '' %>">Off</button>
+      <button type="submit" name="enabled" value="on" class="<%= enabled ? 'active' : '' %>">On</button>
+    </div>
+  </form>
+</div>
+
+<form class="form-box" method="POST" action="/admin/agent-page" style="max-width:none;">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="enabled" value="<%= enabled ? 'on' : 'off' %>">
+
+  <label for="title">Page Title</label>
+  <input type="text" id="title" name="title" value="<%= title %>" maxlength="80" required />
+
+  <label for="subtitle">Subtitle</label>
+  <input type="text" id="subtitle" name="subtitle" value="<%= subtitle %>" maxlength="200" />
+
+  <h2 style="margin-top:24px;">Feature 1</h2>
+  <label for="f1icon">Icon (emoji)</label>
+  <input type="text" id="f1icon" name="f1icon" value="<%= f1icon %>" maxlength="10" />
+  <label for="f1title">Title</label>
+  <input type="text" id="f1title" name="f1title" value="<%= f1title %>" maxlength="60" />
+  <label for="f1desc">Description</label>
+  <textarea id="f1desc" name="f1desc" rows="2" maxlength="300"><%= f1desc %></textarea>
+
+  <h2 style="margin-top:24px;">Feature 2</h2>
+  <label for="f2icon">Icon (emoji)</label>
+  <input type="text" id="f2icon" name="f2icon" value="<%= f2icon %>" maxlength="10" />
+  <label for="f2title">Title</label>
+  <input type="text" id="f2title" name="f2title" value="<%= f2title %>" maxlength="60" />
+  <label for="f2desc">Description</label>
+  <textarea id="f2desc" name="f2desc" rows="2" maxlength="300"><%= f2desc %></textarea>
+
+  <h2 style="margin-top:24px;">Feature 3</h2>
+  <label for="f3icon">Icon (emoji)</label>
+  <input type="text" id="f3icon" name="f3icon" value="<%= f3icon %>" maxlength="10" />
+  <label for="f3title">Title</label>
+  <input type="text" id="f3title" name="f3title" value="<%= f3title %>" maxlength="60" />
+  <label for="f3desc">Description</label>
+  <textarea id="f3desc" name="f3desc" rows="2" maxlength="300"><%= f3desc %></textarea>
+
+  <p class="subtitle" style="margin-top:14px;">Leave a feature's title and description both blank to hide that block on the page entirely.</p>
+
+  <button type="submit" style="margin-top:14px;">Save Agent Page</button>
+</form>
+
+<a class="btn secondary" style="margin-top:20px;" href="/admin/agent-applications">View Submitted Applications</a>
+<% if (enabled) { %>
+  <a class="btn secondary" style="margin-top:20px; margin-left:8px;" href="/agent" target="_blank" rel="noopener">Preview Live Page ↗</a>
+<% } %>
+
+<%- include('partial-footer') %>

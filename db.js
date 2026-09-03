@@ -10,6 +10,7 @@ const { hashPassword, makeId } = require('./utils');
 const defaults = {
   lotteries: [], results: [], purchases: [], purchaseHistory: [], users: [], watchedNumbers: [],
   specialLotteries: [], specialResults: [], specialPurchases: [], specialPurchaseHistory: [],
+  agentApplications: [],
   notifications: [], settings: {
     siteName: 'Haryana Results',
     disclaimerText: 'This site provides lottery results for informational purposes only. Results are compiled from publicly available sources. We do not sell tickets, accept payments, or facilitate any real-money gambling. Please verify results with the official source before acting on them.',
@@ -19,6 +20,12 @@ const defaults = {
     starMode: 'manual',
     specialStarMode: 'manual',
     autoFillMissedResults: false,
+    agentPageEnabled: false,
+    agentPageTitle: 'Become an Agent',
+    agentPageSubtitle: 'Add your own subtitle from Admin \u2192 Agent Page.',
+    agentFeature1Icon: '\u2728', agentFeature1Title: 'Feature One Title', agentFeature1Desc: 'Edit this from Admin \u2192 Agent Page.',
+    agentFeature2Icon: '\u2728', agentFeature2Title: 'Feature Two Title', agentFeature2Desc: 'Edit this from Admin \u2192 Agent Page.',
+    agentFeature3Icon: '\u2728', agentFeature3Title: 'Feature Three Title', agentFeature3Desc: 'Edit this from Admin \u2192 Agent Page.',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };

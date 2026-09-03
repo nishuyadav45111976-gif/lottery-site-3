@@ -146,9 +146,16 @@
     })();
   </script>
 
-  <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
-    <div id="installAppBar" class="install-app-bar" style="display:none;">
-      <button id="installAppBtn" class="btn secondary" type="button">📲 Install App</button>
+  <% if ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof agentPageEnabled !== 'undefined' && agentPageEnabled)) { %>
+    <div class="top-buttons-bar">
+      <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
+        <div id="installAppBar" class="install-app-bar" style="display:none;">
+          <button id="installAppBtn" class="btn secondary" type="button">📲 Install App</button>
+        </div>
+      <% } %>
+      <% if (typeof agentPageEnabled !== 'undefined' && agentPageEnabled) { %>
+        <a href="/agent" class="btn secondary agent-cta-btn">🤝 Become an Agent</a>
+      <% } %>
     </div>
   <% } %>
 

@@ -1,0 +1,49 @@
+<%- include('partial-header', { title: pageTitle }) %>
+
+<a class="back-link" href="/">&larr; Back to Results</a>
+
+<h1><%= pageTitle %></h1>
+<% if (pageSubtitle) { %><p class="subtitle"><%= pageSubtitle %></p><% } %>
+
+<div class="agent-features-box">
+  <% features.forEach(function(f) { %>
+    <% if (f.title || f.desc) { %>
+      <div class="agent-feature-row">
+        <div class="agent-feature-icon"><%= f.icon %></div>
+        <div>
+          <div class="agent-feature-title"><%= f.title %></div>
+          <div class="agent-feature-desc"><%= f.desc %></div>
+        </div>
+      </div>
+    <% } %>
+  <% }); %>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <h2>📝 Agent Registration</h2>
+
+  <% if (submitted) { %>
+    <div class="flash-msg">✓ Thanks — your details have been submitted. We'll get in touch soon.</div>
+  <% } else { %>
+    <% if (error) { %>
+      <div class="error-msg"><%= error %></div>
+    <% } %>
+    <form class="form-box" method="POST" action="/agent/apply">
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" value="<%= (formValues && formValues.name) || '' %>" required maxlength="100" />
+
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" name="phone" value="<%= (formValues && formValues.phone) || '' %>" placeholder="e.g. 98765 43210" pattern="[0-9+\s\-]{10,20}" title="10-15 digits" required />
+
+      <label for="area">City / Area</label>
+      <input type="text" id="area" name="area" value="<%= (formValues && formValues.area) || '' %>" maxlength="100" />
+
+      <label for="message">Message (optional)</label>
+      <textarea id="message" name="message" rows="3" maxlength="1000"><%= (formValues && formValues.message) || '' %></textarea>
+
+      <button type="submit">Submit</button>
+    </form>
+  <% } %>
+</div>
+
+<%- include('partial-footer') %>

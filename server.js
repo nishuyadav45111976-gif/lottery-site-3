@@ -1,14 +1,17 @@
 require("dotenv").config();
 
 if (process.env.NODE_ENV !== "production") {
-  throw new Error("NODE_ENV=production is required for Render deployment");
+  throw new Error("NODE_ENV=production is required in production");
 }
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required in production");
 }
-if (process.env.DATABASE_SSL !== "true") {
-  throw new Error("DATABASE_SSL=true is required in production");
-}
+// DATABASE_SSL should be "true" only when Postgres is a separate/managed
+// service reached over the network (e.g. a cloud DB provider). For a
+// self-hosted Postgres running on the same machine as the app (connected
+// via localhost), leave this "false" — the connection never leaves the
+// server, and most local Postgres installs don't have SSL certificates
+// configured, so forcing SSL against them would just fail to connect.
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET is required in production");
 }
@@ -39,9 +42,12 @@ const userRoutes = require('./routes-user').router;
 
 const app = express();
 
-// Trust the platform's reverse proxy (Replit, Render, etc.) so req.ip reflects
-// the real visitor instead of the proxy — needed for accurate login lockouts.
-app.set('trust proxy', 1);
+// Trust the reverse proxy in front of the app (Nginx, Render, etc.) so
+// req.ip reflects the real visitor instead of the proxy — needed for
+// accurate login lockouts and rate limiting. TRUST_PROXY_HOPS lets this be
+// tuned per-deployment; it defaults to 1 (a single proxy hop), which is
+// correct for the standard Nginx setup in deploy/nginx.conf.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname);
@@ -122,6 +128,7 @@ app.use((req, res, next) => {
   res.locals.t = translator(lang);
   res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
+  res.locals.agentPageEnabled = !!db.get('settings.agentPageEnabled').value();
   res.locals.adminSessionExpiresAt = (req.session && req.session.isAdmin && req.session.adminLoginAt)
     ? req.session.adminLoginAt + ADMIN_SESSION_MAX_AGE_MS
     : null;
@@ -190,7 +197,7 @@ setInterval(() => {
 
 if (process.env.BACKUP_INTERVAL_HOURS && Number(process.env.BACKUP_INTERVAL_HOURS) > 0) {
   const interval = Number(process.env.BACKUP_INTERVAL_HOURS) * 60 * 60 * 1000;
-  const runBackup = () => { const { spawn } = require('child_process'); const child = spawn(process.execPath, [path.join(__dirname,'scripts-backup-postgres.js')], { stdio:'inherit' }); child.on('error', e => console.error('Automated backup failed:', e.message)); };
+  const runBackup = () => { const { spawn } = require('child_process'); const child = spawn(process.execPath, [path.join(__dirname,'scripts','backup-postgres.js')], { stdio:'inherit' }); child.on('error', e => console.error('Automated backup failed:', e.message)); };
   setTimeout(runBackup, 10000);
   setInterval(runBackup, interval);
 }
