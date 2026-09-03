@@ -118,15 +118,65 @@ header.site-header nav a.lang-toggle {
   margin-left: 12px;
 }
 
-.install-app-bar {
+.top-buttons-bar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   background: var(--card);
   border-bottom: 1px solid var(--border);
   padding: 10px 16px;
+}
+
+.install-app-bar {
   text-align: center;
 }
 
 .install-app-bar .btn {
   margin: 0;
+}
+
+.agent-cta-btn {
+  margin: 0;
+}
+
+.agent-features-box {
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.agent-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+}
+.agent-feature-row + .agent-feature-row { border-top: 1px solid var(--border); }
+
+.agent-feature-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.agent-feature-title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.agent-feature-desc {
+  color: var(--text-dim);
+  font-size: 0.9rem;
 }
 
 h1 { font-size: 1.6rem; margin-bottom: 4px; }
@@ -245,7 +295,7 @@ label {
 }
 label:first-child { margin-top: 0; }
 
-input[type=text], input[type=password], input[type=date], select {
+input[type=text], input[type=password], input[type=date], input[type=tel], textarea, select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -253,7 +303,10 @@ input[type=text], input[type=password], input[type=date], select {
   background: #f9fafb;
   color: var(--text);
   font-size: 1rem;
+  font-family: inherit;
 }
+
+textarea { resize: vertical; }
 
 .search-box {
   width: 100%;
