@@ -88,28 +88,22 @@ function sparklinePoints(series, w, h) {
     <a class="quick" href="/admin/users"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/></svg></div><span>Add User</span></a>
     <a class="quick" href="/admin/stats"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="4" y1="19" x2="4" y2="9"/><line x1="10" y1="19" x2="10" y2="5"/><line x1="16" y1="19" x2="16" y2="12"/><line x1="22" y1="19" x2="22" y2="3"/></svg></div><span>Reports</span></a>
     <a class="quick" href="/admin/hub"><div class="quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.84A1.7 1.7 0 0 0 8.4 10a1.7 1.7 0 0 0-.34-1.88L8 8.06l1.7-1.7.06.06A1.7 1.7 0 0 0 11.64 6.8 1.7 1.7 0 0 0 12.67 5.24V5h2.4v.24A1.7 1.7 0 0 0 16.1 6.8a1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.34 10a1.7 1.7 0 0 0 1.56 1.03H21v2.4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></div><span>Settings</span></a>
+    <a class="quick" href="/admin/special"><div class="quick-icon">🎰</div><span>Special Lottery</span></a>
+    <a class="quick" href="/admin/agent-page"><div class="quick-icon">🤝</div><span>Agent Page</span></a>
+    <form method="POST" action="/admin/star-mode" style="display:contents;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="mode" value="<%= (typeof starMode !== 'undefined' && starMode === 'auto') ? 'manual' : 'auto' %>">
+      <button type="submit" class="quick"><div class="quick-icon">⭐</div><span>Star: <%= (typeof starMode !== 'undefined' && starMode === 'auto') ? 'Auto' : 'Manual' %></span></button>
+    </form>
+    <form method="POST" action="/admin/auto-fill-missed-results" style="display:contents;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="enabled" value="<%= (typeof autoFillMissedResults !== 'undefined' && autoFillMissedResults) ? 'off' : 'on' %>">
+      <button type="submit" class="quick"><div class="quick-icon">⚡</div><span>Auto-Fill: <%= (typeof autoFillMissedResults !== 'undefined' && autoFillMissedResults) ? 'On' : 'Off' %></span></button>
+    </form>
   </div>
 </section>
 
 <section>
-  <a href="/admin/special" class="card" id="specialLotteryLink" style="display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit;">
-    <div class="lottery-avatar" style="background:#6B4A32; color:#fff; flex-shrink:0;">🎰</div>
-    <div style="flex:1;">
-      <h2 style="margin:0;">Special Lottery</h2>
-      <p class="subtitle" style="margin:2px 0 0;">000–999 games — separate lotteries, results, purchases and star.</p>
-    </div>
-    <span style="font-size:1.4rem; opacity:0.5;">›</span>
-  </a>
-
-  <a href="/admin/agent-page" class="card" id="agentPageLink" style="display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit;">
-    <div class="lottery-avatar" style="background:var(--accent); color:#1a1a1a; flex-shrink:0;">🤝</div>
-    <div style="flex:1;">
-      <h2 style="margin:0;">Agent Page</h2>
-      <p class="subtitle" style="margin:2px 0 0;">Edit the "Become an Agent" page content and view submitted applications.</p>
-    </div>
-    <span style="font-size:1.4rem; opacity:0.5;">›</span>
-  </a>
-
   <% if (typeof siteHealth !== 'undefined') { %>
   <div class="card" id="siteHealthCard">
     <h2>🩺 Site Health</h2>
@@ -138,30 +132,6 @@ function sparklinePoints(series, w, h) {
     <% } %>
   </div>
   <% } %>
-
-  <div class="card" id="starModeCard">
-    <h2>⭐ Star Mode</h2>
-    <p class="subtitle">Manual: you pick the starred lottery yourself. Automatic: the star follows whichever lottery is closest to its draw, and stays on the one that just published for 15 minutes.</p>
-    <div class="mode-switch" style="margin-top:10px;">
-      <form method="POST" action="/admin/star-mode" style="display:contents;">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button type="submit" name="mode" value="manual" class="<%= (typeof starMode === 'undefined' || starMode !== 'auto') ? 'active' : '' %>">Manual</button>
-        <button type="submit" name="mode" value="auto" class="<%= (typeof starMode !== 'undefined' && starMode === 'auto') ? 'active' : '' %>">Automatic</button>
-      </form>
-    </div>
-  </div>
-
-  <div class="card" id="autoFillMissedResultsCard">
-    <h2>⚡ Auto-Fill Missed Results</h2>
-    <p class="subtitle">If a lottery's draw time passes with no result posted, the system automatically posts the number carrying the <strong>least money</strong> this round as the result — starting from the last 30 seconds of the draw minute (post the real result any time in the first 30 seconds and this won't trigger). Works for normal and Special Lotteries alike. If more than one lottery is missed the same day, each gets a different number where possible. Auto-filled results are clearly marked and you can still overwrite them with the real result at any time.</p>
-    <form method="POST" action="/admin/auto-fill-missed-results" style="margin-top:10px;">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <div class="mode-switch">
-        <button type="submit" name="enabled" value="off" class="<%= (typeof autoFillMissedResults === 'undefined' || !autoFillMissedResults) ? 'active' : '' %>">Off</button>
-        <button type="submit" name="enabled" value="on" class="<%= (typeof autoFillMissedResults !== 'undefined' && autoFillMissedResults) ? 'active' : '' %>">On</button>
-      </div>
-    </form>
-  </div>
 
   <div class="section-head"><h2>Your lotteries</h2></div>
 

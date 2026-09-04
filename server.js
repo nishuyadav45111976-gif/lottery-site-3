@@ -115,6 +115,7 @@ app.use((req, res, next) => {
   // without every single admin view having to pass it in manually.
   res.locals.isAdminPage = req.path.startsWith('/admin');
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
+  res.locals.isAdminDashboardPage = req.path === '/admin' || req.path === '/admin/';
   // Lets the admin panel be installed to the home screen as its own app,
   // separate from the public site's installability (enableServiceWorker
   // below, which deliberately excludes /admin).
