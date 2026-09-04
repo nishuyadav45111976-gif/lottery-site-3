@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('./db');
 const { requireLogin } = require('./middleware-auth');
-const { slugify, makeId, makeRecoveryCode, hashPassword, verifyPassword, isValidResultText, isValidPhoneNumber } = require('./utils');
+const { slugify, makeId, makeRecoveryCode, hashPassword, verifyPassword, isValidResultText, isValidPhoneNumber, digitsOnly } = require('./utils');
 const { authenticator } = require('otplib');
 
 // ---------- LOGIN / LOGOUT ----------
@@ -1593,7 +1593,10 @@ router.get('/agent-applications', (req, res) => {
   const totalApplications = all.length;
   const totalPages = Math.max(1, Math.ceil(totalApplications / perPage));
   const page = Math.min(totalPages, Math.max(1, parseInt(req.query.page, 10) || 1));
-  const applications = all.slice((page - 1) * perPage, page * perPage);
+  const applications = all.slice((page - 1) * perPage, page * perPage).map((a) => ({
+    ...a,
+    whatsappDigits: digitsOnly(a.whatsapp || a.phone || ''),
+  }));
   res.render('admin-agent-applications', { applications, page, totalPages, totalApplications });
 });
 

@@ -116,10 +116,6 @@ app.use((req, res, next) => {
   res.locals.isAdminPage = req.path.startsWith('/admin');
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.isAdminDashboardPage = req.path === '/admin' || req.path === '/admin/';
-  // Lets the admin panel be installed to the home screen as its own app,
-  // separate from the public site's installability (enableServiceWorker
-  // below, which deliberately excludes /admin).
-  res.locals.enableAdminInstall = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.userSession = !!(req.session && req.session.userId);
 
   // Language for the public site (English/Hindi). Persisted in the session so

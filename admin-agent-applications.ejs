@@ -13,12 +13,13 @@
 <% } else { %>
   <div class="table-scroll-wrap">
   <table>
-    <thead><tr><th>Name</th><th>Phone</th><th>Area</th><th>Message</th><th>Submitted</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>WhatsApp</th><th>Telegram</th><th>Area</th><th>Message</th><th>Submitted</th><th></th></tr></thead>
     <tbody>
       <% applications.forEach(function(a) { %>
         <tr>
           <td><%= a.name %></td>
-          <td><a href="tel:<%= a.phone %>"><%= a.phone %></a></td>
+          <td><a href="https://wa.me/<%= a.whatsappDigits %>" target="_blank" rel="noopener">📲 <%= a.whatsapp || a.phone %></a></td>
+          <td><% if (a.telegram) { %><a href="https://t.me/<%= a.telegram %>" target="_blank" rel="noopener">✈️ @<%= a.telegram %></a><% } else { %>—<% } %></td>
           <td><%= a.area || '—' %></td>
           <td style="max-width:220px; white-space:normal;"><%= a.message || '—' %></td>
           <td class="dim-cell"><%= new Date(a.createdAt).toLocaleString('en-IN') %></td>

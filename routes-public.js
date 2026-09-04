@@ -447,33 +447,6 @@ router.get('/manifest.json', (req, res) => {
   );
 });
 
-// Separate manifest for the Admin Panel, so it installs to the home screen
-// as its own distinct app icon/name — pointing straight at /admin instead
-// of the public homepage.
-router.get('/admin-manifest.json', (req, res) => {
-  const siteName = db.get('settings.siteName').value() || 'Haryana Results';
-  res.type('application/manifest+json');
-  res.send(
-    JSON.stringify(
-      {
-        name: siteName + ' Admin',
-        short_name: 'Admin Panel',
-        start_url: '/admin',
-        display: 'standalone',
-        background_color: '#221912',
-        theme_color: '#6B4A32',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: '/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      null,
-      2
-    )
-  );
-});
-
 // ---------- BECOME AN AGENT ----------
 // Everything shown on this page (title, subtitle, the three feature
 // blocks) comes from settings — fully editable from Admin → Agent Page,
@@ -510,17 +483,18 @@ router.post('/agent/apply', async (req, res) => {
     return res.status(404).render('404');
   }
   const name = (req.body.name || '').trim();
-  const phone = (req.body.phone || '').trim();
+  const whatsapp = (req.body.whatsapp || '').trim();
+  const telegram = (req.body.telegram || '').trim().replace(/^@/, '');
   const area = (req.body.area || '').trim();
   const message = (req.body.message || '').trim();
-  const formValues = { name, phone, area, message };
+  const formValues = { name, whatsapp, telegram, area, message };
 
   if (!name) return res.render('agent', { ...agentPageContent(), error: 'Please enter your full name.', submitted: false, formValues });
-  if (!phone || !isValidPhoneNumber(phone)) return res.render('agent', { ...agentPageContent(), error: 'Please enter a valid phone number (10-15 digits).', submitted: false, formValues });
-  if (name.length > 100 || area.length > 100 || message.length > 1000) return res.render('agent', { ...agentPageContent(), error: 'One of the fields is too long — please shorten it.', submitted: false, formValues });
+  if (!whatsapp || !isValidPhoneNumber(whatsapp)) return res.render('agent', { ...agentPageContent(), error: 'Please enter a valid WhatsApp number (10-15 digits).', submitted: false, formValues });
+  if (name.length > 100 || area.length > 100 || message.length > 1000 || telegram.length > 40) return res.render('agent', { ...agentPageContent(), error: 'One of the fields is too long — please shorten it.', submitted: false, formValues });
 
   db.get('agentApplications').push({
-    id: makeId(), name, phone, area, message,
+    id: makeId(), name, whatsapp, telegram: telegram || null, area, message,
     createdAt: new Date().toISOString(), reviewed: false,
   }).write();
 

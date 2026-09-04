@@ -134,7 +134,7 @@
     })();
   </script>
 
-  <% if ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof enableAdminInstall !== 'undefined' && enableAdminInstall)) { %>
+  <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {

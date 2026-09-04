@@ -17,7 +17,7 @@
   <meta name="theme-color" content="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '#6B4A32' : '#1a9c6b' %>" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '/icon-192.png' : '/favicon.svg' %>" />
-  <link rel="manifest" href="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '/admin-manifest.json' : '/manifest.json' %>" />
+  <link rel="manifest" href="/manifest.json" />
   <script>
     // Applied before the stylesheet loads, so there's no flash of the wrong theme
     (function () {
@@ -55,11 +55,6 @@
       <% } %>
     </div>
   </header>
-  <% if (typeof enableAdminInstall !== 'undefined' && enableAdminInstall) { %>
-    <div id="installAppBar" class="install-app-bar" style="display:none;">
-      <button id="installAppBtn" class="btn secondary" type="button">📲 Install Admin App</button>
-    </div>
-  <% } %>
   <% } else { %>
   <header class="site-header">
     <div class="container">
@@ -146,7 +141,7 @@
     })();
   </script>
 
-  <% if ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof agentPageEnabled !== 'undefined' && agentPageEnabled)) { %>
+  <% if (!(typeof isAdminPage !== 'undefined' && isAdminPage) && ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof agentPageEnabled !== 'undefined' && agentPageEnabled))) { %>
     <div class="top-buttons-bar">
       <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
         <div id="installAppBar" class="install-app-bar" style="display:none;">
