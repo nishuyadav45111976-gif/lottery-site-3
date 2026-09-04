@@ -496,8 +496,14 @@ router.get('/agent', async (req, res) => {
   if (!(db.get('settings.agentPageEnabled').value())) {
     return res.status(404).render('404');
   }
-  res.render('agent', { ...agentPageContent(), error: null, submitted: false, formValues: null });
+  res.render('agent', { ...agentPageContent(), error: null, submitted: req.query.submitted === '1', formValues: null });
 });
+
+// Defensive fallback: if a link or bookmark ever lands here as a plain GET
+// (e.g. a page reload after the POST below, since browsers can turn a
+// refresh into a fresh GET at the same URL), just send them back to the
+// form instead of Express's bare "Cannot GET" error page.
+router.get('/agent/apply', (req, res) => res.redirect('/agent'));
 
 router.post('/agent/apply', async (req, res) => {
   if (!(db.get('settings.agentPageEnabled').value())) {
@@ -518,7 +524,12 @@ router.post('/agent/apply', async (req, res) => {
     createdAt: new Date().toISOString(), reviewed: false,
   }).write();
 
-  res.render('agent', { ...agentPageContent(), error: null, submitted: true, formValues: null });
+  // Redirect rather than render-in-place: if we rendered the "thanks" page
+  // directly at this POST-only URL, a later page refresh (very likely from
+  // someone double-checking their submission went through) would hit this
+  // exact path as a GET, which doesn't exist here — redirecting to the
+  // real GET /agent page avoids that entirely.
+  res.redirect('/agent?submitted=1');
 });
 
 module.exports = router;
