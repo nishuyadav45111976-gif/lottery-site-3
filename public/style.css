@@ -459,9 +459,21 @@ td.dim-cell { color: var(--text-dim); }
 }
 .table-scroll-wrap table { margin-top: 0; box-shadow: none; }
 
+#lotteryTable td, #lotteryTable th {
+  padding: 18px 14px;
+}
+#lotteryTable a.lottery-link {
+  font-size: 1.08rem;
+}
+#lotteryTable td.result-cell {
+  font-size: 1.3rem;
+}
+
 @media (max-width: 480px) {
-  #lotteryTable th, #lotteryTable td { padding: 10px 8px; font-size: 0.85rem; }
-  #lotteryTable .date-sub { font-size: 0.65rem; }
+  #lotteryTable th, #lotteryTable td { padding: 16px 10px; font-size: 0.95rem; }
+  #lotteryTable a.lottery-link { font-size: 1rem; }
+  #lotteryTable td.result-cell { font-size: 1.15rem; }
+  #lotteryTable .date-sub { font-size: 0.68rem; }
 }
 
 .top-actions {
