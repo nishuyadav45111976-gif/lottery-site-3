@@ -50,6 +50,15 @@ function dateString(clock) {
   return `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`;
 }
 
+// "2026-09-05" -> "5 Sep" — used for the table's column headers instead of
+// the generic "Latest"/"Previous" labels, and short enough to fit a
+// narrow table column on mobile.
+function shortDateLabel(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return `${d.getUTCDate()} ${d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })}`;
+}
+
 // Special Lotteries draw once every 7 days, not daily. The cycle is
 // anchored to whichever date its first-ever result was posted on — so if
 // the first result landed on the 30th, the next is the 7th, then the
@@ -161,6 +170,13 @@ router.get('/', async (req, res) => {
   await db.applyAutoFillMissedResults().catch(() => {});
   const lotteries = db.get('lotteries').value() || [];
 
+  const tzForTable = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const todayClockForTable = zonedNow(tzForTable);
+  const todayDateStrForTable = dateString(todayClockForTable);
+  const yesterdayDateStrForTable = new Date(new Date(`${todayDateStrForTable}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
+  const latestColumnLabel = shortDateLabel(todayDateStrForTable);
+  const previousColumnLabel = shortDateLabel(yesterdayDateStrForTable);
+
   const lotteriesWithResults = lotteries.map((lottery) => {
     const results = db
       .get('results')
@@ -230,6 +246,7 @@ router.get('/', async (req, res) => {
 
   res.render('index', {
     lotteries: lotteriesWithResults, starredLottery, mainLotteries, recentRows, lastUpdated, specialLotteries, starredSpecialLottery, isHomePage: true,
+    latestColumnLabel, previousColumnLabel,
     homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
     homeContentTitle: db.get('settings.homeContentTitle').value() || '',
     homeContentBody: db.get('settings.homeContentBody').value() || '',

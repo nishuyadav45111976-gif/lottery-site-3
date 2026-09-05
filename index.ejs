@@ -61,8 +61,8 @@
       <tr>
         <th><%= t('tableLottery') %></th>
         <th><%= t('tableTime') %></th>
-        <th><%= t('tablePrevious') %></th>
-        <th><%= t('tableLatest') %></th>
+        <th><%= typeof previousColumnLabel !== 'undefined' ? previousColumnLabel : t('tablePrevious') %></th>
+        <th><%= typeof latestColumnLabel !== 'undefined' ? latestColumnLabel : t('tableLatest') %></th>
       </tr>
     </thead>
     <tbody>
@@ -76,13 +76,10 @@
           <td class="dim-cell"><%= lottery.drawTime || '—' %></td>
           <td class="result-cell">
             <%= lottery.previousResult ? lottery.previousResult.resultText : 'XX' %>
-            <% if (lottery.previousResult) { %><div class="date-sub"><%= lottery.previousResult.date %></div><% } %>
           </td>
           <td class="result-cell">
             <%= lottery.latestResult ? lottery.latestResult.resultText : 'XX' %>
-            <% if (lottery.latestResult) { %>
-              <div class="date-sub"><%= lottery.latestResult.date %></div>
-            <% } else if (lottery.upcoming) { %>
+            <% if (!lottery.latestResult && lottery.upcoming) { %>
               <div class="date-sub"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Today · ' + lottery.upcoming.remainingText + ' left') %></div>
             <% } %>
           </td>
