@@ -101,6 +101,13 @@ header.site-header a.logo {
   letter-spacing: 0.02em;
 }
 
+.banner-note {
+  color: rgba(255,255,255,0.9);
+  font-size: 0.92rem;
+  margin: 10px 0 0;
+  line-height: 1.4;
+}
+
 header.site-header nav a {
   color: rgba(255,255,255,0.85);
   text-decoration: none;
@@ -461,6 +468,17 @@ td.dim-cell { color: var(--text-dim); }
 
 #lotteryTable td, #lotteryTable th {
   padding: 18px 14px;
+}
+#lotteryTable {
+  table-layout: fixed;
+}
+#lotteryTable th:first-child, #lotteryTable td:first-child {
+  width: 38%;
+}
+#lotteryTable th:nth-child(2), #lotteryTable td:nth-child(2),
+#lotteryTable th:nth-child(3), #lotteryTable td:nth-child(3) {
+  width: 31%;
+  text-align: center;
 }
 #lotteryTable a.lottery-link {
   font-size: 1.08rem;
