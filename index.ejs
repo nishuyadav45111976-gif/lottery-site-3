@@ -60,7 +60,6 @@
     <thead>
       <tr>
         <th><%= t('tableLottery') %></th>
-        <th><%= t('tableTime') %></th>
         <th><%= typeof previousColumnLabel !== 'undefined' ? previousColumnLabel : t('tablePrevious') %></th>
         <th><%= typeof latestColumnLabel !== 'undefined' ? latestColumnLabel : t('tableLatest') %></th>
       </tr>
@@ -73,7 +72,6 @@
               <%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %>
             </a>
           </td>
-          <td class="dim-cell"><%= lottery.drawTime || '—' %></td>
           <td class="result-cell">
             <%= lottery.previousResult ? lottery.previousResult.resultText : 'XX' %>
           </td>
