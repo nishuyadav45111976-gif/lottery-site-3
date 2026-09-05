@@ -228,7 +228,12 @@ router.get('/', async (req, res) => {
     return { date, cells };
   });
 
-  res.render('index', { lotteries: lotteriesWithResults, starredLottery, mainLotteries, recentRows, lastUpdated, specialLotteries, starredSpecialLottery, isHomePage: true });
+  res.render('index', {
+    lotteries: lotteriesWithResults, starredLottery, mainLotteries, recentRows, lastUpdated, specialLotteries, starredSpecialLottery, isHomePage: true,
+    homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
+    homeContentTitle: db.get('settings.homeContentTitle').value() || '',
+    homeContentBody: db.get('settings.homeContentBody').value() || '',
+  });
 });
 
 // Single lottery page: full result history

@@ -26,6 +26,9 @@ const defaults = {
     agentFeature1Icon: '\u2728', agentFeature1Title: 'Feature One Title', agentFeature1Desc: 'Edit this from Admin \u2192 Agent Page.',
     agentFeature2Icon: '\u2728', agentFeature2Title: 'Feature Two Title', agentFeature2Desc: 'Edit this from Admin \u2192 Agent Page.',
     agentFeature3Icon: '\u2728', agentFeature3Title: 'Feature Three Title', agentFeature3Desc: 'Edit this from Admin \u2192 Agent Page.',
+    homeContentEnabled: false,
+    homeContentTitle: '',
+    homeContentBody: '',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };

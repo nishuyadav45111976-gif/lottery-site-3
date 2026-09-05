@@ -34,7 +34,7 @@
       <input type="text" id="name" name="name" value="<%= (formValues && formValues.name) || '' %>" required maxlength="100" />
 
       <label for="whatsapp">WhatsApp Number</label>
-      <input type="tel" id="whatsapp" name="whatsapp" value="<%= (formValues && formValues.whatsapp) || '' %>" placeholder="e.g. +91 98765 43210" pattern="[0-9+\s\-]{10,20}" title="10-15 digits" required />
+      <input type="tel" id="whatsapp" name="whatsapp" value="<%= (formValues ? formValues.whatsapp : null) ?? '+91 ' %>" placeholder="e.g. +91 98765 43210" pattern="[0-9+\s\-]{10,20}" title="10-15 digits" required />
 
       <label for="telegram">Telegram Username (optional)</label>
       <input type="text" id="telegram" name="telegram" value="<%= (formValues && formValues.telegram) || '' %>" placeholder="e.g. yourusername" maxlength="40" />

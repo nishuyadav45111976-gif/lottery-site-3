@@ -29,6 +29,32 @@
   <button type="submit">Save Settings</button>
 </form>
 
+<h1 style="margin-top:36px;">Homepage Text Block</h1>
+<p class="subtitle">A block of your own text shown near the bottom of the homepage, above the contact bar — good for keywords, area names, or anything else you want visitors (and search engines) to see. Leave it off if you don't need it.</p>
+
+<form method="POST" action="/admin/home-content" id="homeContentToggleForm">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="title" value="<%= homeContentTitle %>">
+  <input type="hidden" name="body" value="<%= homeContentBody %>">
+  <div class="mode-switch" style="margin-bottom:16px;">
+    <button type="submit" name="enabled" value="off" class="<%= !homeContentEnabled ? 'active' : '' %>">Off</button>
+    <button type="submit" name="enabled" value="on" class="<%= homeContentEnabled ? 'active' : '' %>">On</button>
+  </div>
+</form>
+
+<form class="form-box" method="POST" action="/admin/home-content">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="enabled" value="<%= homeContentEnabled ? 'on' : 'off' %>">
+
+  <label for="homeTitle">Title (optional)</label>
+  <input type="text" id="homeTitle" name="title" value="<%= homeContentTitle %>" maxlength="100" />
+
+  <label for="homeBody">Text</label>
+  <textarea id="homeBody" name="body" rows="5" maxlength="2000"><%= homeContentBody %></textarea>
+
+  <button type="submit">Save Homepage Text</button>
+</form>
+
 <h1 style="margin-top:36px;">Change Admin Password</h1>
 <p class="subtitle">Update the password used to log into this admin panel. You'll be logged out afterwards and need to sign in again.</p>
 

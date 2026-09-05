@@ -123,6 +123,13 @@
 
 <p class="subtitle" style="margin-top:20px;"><a class="back-link" href="/history"><%= t('viewFullHistory') %></a></p>
 
+<% if (typeof homeContentEnabled !== 'undefined' && homeContentEnabled && homeContentBody) { %>
+  <div class="card home-content-block" style="margin-top:20px;">
+    <% if (homeContentTitle) { %><h2><%= homeContentTitle %></h2><% } %>
+    <p style="white-space:pre-wrap; color:var(--text-dim); margin:0;"><%= homeContentBody %></p>
+  </div>
+<% } %>
+
 <% if (lotteries.length > 5) { %>
 <script>
   function filterLotteryTable() {

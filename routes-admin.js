@@ -161,7 +161,23 @@ router.get('/settings', (req, res) => {
   const contactNumber = db.get('settings.contactNumber').value() || '';
   const contactLabel = db.get('settings.contactLabel').value() || 'Help & Queries';
   const contactType = db.get('settings.contactType').value() || 'call';
-  res.render('admin-settings', { currentName: siteName, currentContactNumber: contactNumber, currentContactLabel: contactLabel, currentContactType: contactType, error: null, passwordError: null });
+  res.render('admin-settings', {
+    currentName: siteName, currentContactNumber: contactNumber, currentContactLabel: contactLabel, currentContactType: contactType,
+    homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
+    homeContentTitle: db.get('settings.homeContentTitle').value() || '',
+    homeContentBody: db.get('settings.homeContentBody').value() || '',
+    error: null, passwordError: null,
+  });
+});
+
+router.post('/home-content', (req, res) => {
+  const title = (req.body.title || '').trim();
+  const body = (req.body.body || '').trim();
+  db.set('settings.homeContentEnabled', req.body.enabled === 'on').write();
+  db.set('settings.homeContentTitle', title).write();
+  db.set('settings.homeContentBody', body).write();
+  logAction(req, 'Homepage text block updated', title || '(untitled)');
+  redirectWithFlash(res, '/admin/settings', 'Homepage text block saved');
 });
 
 router.post('/settings/2fa/regenerate', (req, res) => {
@@ -216,6 +232,9 @@ router.post('/settings', (req, res) => {
       currentContactNumber: trimmedNumber,
       currentContactLabel: (contactLabel || '').trim() || 'Help & Queries',
       currentContactType: contactType === 'whatsapp' ? 'whatsapp' : 'call',
+      homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
+      homeContentTitle: db.get('settings.homeContentTitle').value() || '',
+      homeContentBody: db.get('settings.homeContentBody').value() || '',
       error: 'Please enter a valid phone number (10-15 digits).',
       passwordError: null,
     });
@@ -289,6 +308,9 @@ router.post('/settings/password', (req, res) => {
       currentContactNumber: contactNumber,
       currentContactLabel: contactLabel,
       currentContactType: contactType,
+      homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
+      homeContentTitle: db.get('settings.homeContentTitle').value() || '',
+      homeContentBody: db.get('settings.homeContentBody').value() || '',
       error: null,
       passwordError,
     });
