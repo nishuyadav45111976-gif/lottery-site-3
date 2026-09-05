@@ -126,6 +126,8 @@ app.use((req, res, next) => {
   res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
   res.locals.agentPageEnabled = !!db.get('settings.agentPageEnabled').value();
+  res.locals.bannerNoteEnabled = !!db.get('settings.bannerNoteEnabled').value();
+  res.locals.bannerNoteText = db.get('settings.bannerNoteText').value() || '';
   res.locals.adminSessionExpiresAt = (req.session && req.session.isAdmin && req.session.adminLoginAt)
     ? req.session.adminLoginAt + ADMIN_SESSION_MAX_AGE_MS
     : null;

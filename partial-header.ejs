@@ -73,6 +73,9 @@
         <button id="themeToggleBtn" type="button" class="lang-toggle" style="background:transparent; cursor:pointer;">🌙</button>
       </nav>
     </div>
+    <% if (typeof bannerNoteEnabled !== 'undefined' && bannerNoteEnabled && bannerNoteText) { %>
+      <p class="banner-note"><%= bannerNoteText %></p>
+    <% } %>
     <% if (typeof hasSpecialLotteries !== 'undefined' && hasSpecialLotteries) { %>
       <a href="/special" class="special-header-link">🎰 Special Lottery <span>›</span></a>
     <% } %>

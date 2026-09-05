@@ -166,6 +166,8 @@ router.get('/settings', (req, res) => {
     homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
     homeContentTitle: db.get('settings.homeContentTitle').value() || '',
     homeContentBody: db.get('settings.homeContentBody').value() || '',
+    bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
+    bannerNoteText: db.get('settings.bannerNoteText').value() || '',
     error: null, passwordError: null,
   });
 });
@@ -178,6 +180,14 @@ router.post('/home-content', (req, res) => {
   db.set('settings.homeContentBody', body).write();
   logAction(req, 'Homepage text block updated', title || '(untitled)');
   redirectWithFlash(res, '/admin/settings', 'Homepage text block saved');
+});
+
+router.post('/banner-note', (req, res) => {
+  const text = (req.body.text || '').trim();
+  db.set('settings.bannerNoteEnabled', req.body.enabled === 'on').write();
+  db.set('settings.bannerNoteText', text).write();
+  logAction(req, 'Banner note updated', text || '(empty)');
+  redirectWithFlash(res, '/admin/settings', 'Banner note saved');
 });
 
 router.post('/settings/2fa/regenerate', (req, res) => {
@@ -235,6 +245,8 @@ router.post('/settings', (req, res) => {
       homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
       homeContentTitle: db.get('settings.homeContentTitle').value() || '',
       homeContentBody: db.get('settings.homeContentBody').value() || '',
+      bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
+      bannerNoteText: db.get('settings.bannerNoteText').value() || '',
       error: 'Please enter a valid phone number (10-15 digits).',
       passwordError: null,
     });
@@ -311,6 +323,8 @@ router.post('/settings/password', (req, res) => {
       homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
       homeContentTitle: db.get('settings.homeContentTitle').value() || '',
       homeContentBody: db.get('settings.homeContentBody').value() || '',
+      bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
+      bannerNoteText: db.get('settings.bannerNoteText').value() || '',
       error: null,
       passwordError,
     });

@@ -7,15 +7,6 @@
 <% } %>
 
 
-<% const upcomingLotteries = lotteries.filter(l => l.upcoming); if (upcomingLotteries.length) { %>
-  <div class="upcoming-card" aria-live="polite">
-    <h2 style="margin:0 0 8px;">🕐 Upcoming Lottery</h2>
-    <% upcomingLotteries.slice(0,4).forEach(function(lottery) { %>
-      <div class="upcoming-item"><strong><%= lottery.name %></strong><span>Draw: <%= lottery.upcoming.drawTime %></span><span><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Today · ' + lottery.upcoming.remainingText + ' left') %></span></div>
-    <% }); %>
-  </div>
-<% } %>
-
 <% if (starredLottery) { %>
   <div class="featured-box">
     <div class="featured-label">⭐ <%= t('featuredLabel') %></div>
@@ -77,9 +68,6 @@
           </td>
           <td class="result-cell">
             <%= lottery.latestResult ? lottery.latestResult.resultText : 'XX' %>
-            <% if (!lottery.latestResult && lottery.upcoming) { %>
-              <div class="date-sub"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Today · ' + lottery.upcoming.remainingText + ' left') %></div>
-            <% } %>
           </td>
         </tr>
       <% }); %>

@@ -29,6 +29,8 @@ const defaults = {
     homeContentEnabled: false,
     homeContentTitle: '',
     homeContentBody: '',
+    bannerNoteEnabled: false,
+    bannerNoteText: '',
   }, auditLog: [],
   analytics: {}, visitorSessions: {}
 };

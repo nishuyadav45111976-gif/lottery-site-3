@@ -55,6 +55,28 @@
   <button type="submit">Save Homepage Text</button>
 </form>
 
+<h1 style="margin-top:36px;">Banner Note</h1>
+<p class="subtitle">A short note shown right in the green banner at the top of every page, below the site name — keeps the site's own look, just adds your own line of text there. Leave it off if you don't need it.</p>
+
+<form method="POST" action="/admin/banner-note" id="bannerNoteToggleForm">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="text" value="<%= bannerNoteText %>">
+  <div class="mode-switch" style="margin-bottom:16px;">
+    <button type="submit" name="enabled" value="off" class="<%= !bannerNoteEnabled ? 'active' : '' %>">Off</button>
+    <button type="submit" name="enabled" value="on" class="<%= bannerNoteEnabled ? 'active' : '' %>">On</button>
+  </div>
+</form>
+
+<form class="form-box" method="POST" action="/admin/banner-note">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="enabled" value="<%= bannerNoteEnabled ? 'on' : 'off' %>">
+
+  <label for="bannerText">Note text</label>
+  <textarea id="bannerText" name="text" rows="3" maxlength="300"><%= bannerNoteText %></textarea>
+
+  <button type="submit">Save Banner Note</button>
+</form>
+
 <h1 style="margin-top:36px;">Change Admin Password</h1>
 <p class="subtitle">Update the password used to log into this admin panel. You'll be logged out afterwards and need to sign in again.</p>
 
