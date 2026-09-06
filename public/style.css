@@ -666,12 +666,37 @@ body.has-contact-bar .container {
 .scroll-grid table {
   margin-top: 0;
   box-shadow: none;
+  /* position:sticky on table cells is unreliable in several mobile browsers
+     when the table uses border-collapse:collapse (the site-wide default) —
+     separate + zero spacing keeps the same visual look while letting the
+     sticky header row and sticky date column actually work. */
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .scroll-grid th {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.scroll-grid td, .scroll-grid th {
+  border-right: 1px solid var(--border);
+}
+.scroll-grid td:last-child, .scroll-grid th:last-child {
+  border-right: none;
+}
+
+.scroll-grid td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+}
+.scroll-grid th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
 }
 
 .number-grid {
