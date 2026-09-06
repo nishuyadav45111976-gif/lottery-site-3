@@ -12,6 +12,8 @@
   --header-navy: #14213d;
   --special-primary: #6d3fa0;
   --special-primary-dark: #4f2c78;
+  --main-result-accent: #7a2333;
+  --main-result-accent-dark: #5c1a26;
 }
 
 [data-theme="dark"] {
@@ -28,6 +30,8 @@
   --header-navy: #0a0f1a;
   --special-primary: #8a5cc4;
   --special-primary-dark: #5c3690;
+  --main-result-accent: #c15a70;
+  --main-result-accent-dark: #a8465b;
 }
 
 [data-theme="dark"] input[type=text],
@@ -239,6 +243,20 @@ p.subtitle { color: var(--text-dim); margin-top: 0; }
   color: var(--text-dim);
   font-size: 0.8rem;
   margin-top: 6px;
+}
+
+.main-results-grid .name {
+  font-weight: 800;
+  font-size: 1.22rem;
+}
+.main-result-card {
+  border-left: 4px solid var(--main-result-accent);
+}
+.main-result-card:hover {
+  border-color: var(--main-result-accent);
+}
+.main-result-card .result {
+  color: var(--main-result-accent);
 }
 
 .empty-state {
