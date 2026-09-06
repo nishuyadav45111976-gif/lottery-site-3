@@ -195,7 +195,10 @@ router.get('/', async (req, res) => {
   });
 
   const starredLottery = lotteriesWithResults.find((l) => l.starred) || null;
-  const mainLotteries = lotteriesWithResults.filter((l) => l.isMain).slice(0, 4);
+  const mainLotteries = lotteriesWithResults.filter((l) => l.isMain).slice(0, 4).map((l) => ({
+    ...l,
+    latestResultDateLabel: l.latestResult ? shortDateLabel(l.latestResult.date) : null,
+  }));
 
   await db.applyAutoSpecialStar().catch(() => {});
   await db.applyAutoFillMissedSpecialResults().catch(() => {});

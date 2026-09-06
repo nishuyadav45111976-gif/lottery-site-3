@@ -23,13 +23,13 @@
 
 <% if (mainLotteries.length > 0) { %>
   <h2 style="margin-top:28px;"><%= t('mainResultsHeading') %></h2>
-  <div class="card-grid">
+  <div class="card-grid main-results-grid">
     <% mainLotteries.forEach(function(lottery) { %>
-      <a class="lottery-card" href="/lottery/<%= lottery.slug %>">
+      <a class="lottery-card main-result-card" href="/lottery/<%= lottery.slug %>">
         <div class="name"><%= lottery.name %></div>
         <% if (lottery.latestResult) { %>
           <div class="result"><%= lottery.latestResult.resultText %></div>
-          <div class="date">Latest · <%= lottery.latestResult.date %></div>
+          <div class="date">Latest · <%= lottery.latestResultDateLabel %></div>
         <% } else if (lottery.upcoming) { %>
           <div class="no-result"><%= lottery.upcoming.pendingResult ? 'Result pending' : ('Upcoming · ' + lottery.upcoming.drawTime) %></div>
         <% } else { %>
