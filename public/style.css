@@ -655,8 +655,6 @@ body.has-contact-bar .container {
 }
 
 .scroll-grid {
-  max-height: 480px;
-  overflow-y: auto;
   overflow-x: auto;
   margin-top: 16px;
   border-radius: 10px;
@@ -692,6 +690,7 @@ body.has-contact-bar .container {
   left: 0;
   z-index: 1;
   background: var(--card);
+  font-weight: 600;
 }
 .scroll-grid th:first-child {
   position: sticky;
