@@ -244,7 +244,7 @@ router.get('/', async (req, res) => {
       const match = allResults.find((r) => r.lotteryId === lottery.id && r.date === date);
       return match ? match.resultText : 'XX';
     });
-    return { date, cells };
+    return { date, dateLabel: shortDateLabel(date), cells };
   });
 
   res.render('index', {
