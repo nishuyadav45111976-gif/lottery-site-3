@@ -114,6 +114,10 @@ app.use((req, res, next) => {
   // Lets shared partials (header/footer) know we're inside the admin panel
   // without every single admin view having to pass it in manually.
   res.locals.isAdminPage = req.path.startsWith('/admin');
+  // Scopes the PWA "install as app" treatment (iOS full-screen meta tags,
+  // app icon) to just the user panel, per request — public results pages
+  // and the admin panel keep their original head tags untouched.
+  res.locals.isUserPanelPage = req.path.startsWith('/account') || req.path === '/login' || req.path === '/recover';
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.isAdminDashboardPage = req.path === '/admin' || req.path === '/admin/';
   res.locals.userSession = !!(req.session && req.session.userId);
@@ -123,7 +127,7 @@ app.use((req, res, next) => {
   const lang = (req.session && req.session.lang === 'hi') ? 'hi' : 'en';
   res.locals.lang = lang;
   res.locals.t = translator(lang);
-  res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
+  res.locals.enableServiceWorker = !req.path.startsWith('/admin');
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
   res.locals.agentPageEnabled = !!db.get('settings.agentPageEnabled').value();
   res.locals.bannerNoteEnabled = !!db.get('settings.bannerNoteEnabled').value();

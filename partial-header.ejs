@@ -16,8 +16,17 @@
   <% if (!noIndex && currentUrl) { %><link rel="canonical" href="<%= currentUrl %>" /><% } %>
   <meta name="theme-color" content="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '#6B4A32' : '#1a9c6b' %>" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '/icon-192.png' : '/favicon.svg' %>" />
+  <link rel="apple-touch-icon" href="<%= ((typeof isAdminPage !== 'undefined' && isAdminPage) || (typeof isUserPanelPage !== 'undefined' && isUserPanelPage)) ? '/icon-192.png' : '/favicon.svg' %>" />
   <link rel="manifest" href="/manifest.json" />
+  <% if (typeof isUserPanelPage !== 'undefined' && isUserPanelPage) { %>
+  <!-- iOS Safari ignores the web manifest's display mode, so these tags are
+       what actually makes "Add to Home Screen" open full-screen (no browser
+       chrome) instead of just bookmarking the page. Scoped to the user
+       panel only — public pages and admin are untouched. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="<%= siteName %>" />
+  <% } %>
   <script>
     // Applied before the stylesheet loads, so there's no flash of the wrong theme
     (function () {

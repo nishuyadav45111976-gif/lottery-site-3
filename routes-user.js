@@ -140,6 +140,14 @@ router.post('/login', (req, res) => {
     req.session.userId = user.id;
     req.session.userSessionVersion = Number(user.sessionVersion || 0);
     req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
+    // User panel only: make this a true browser-session cookie (no fixed
+    // time limit) instead of the shared 8-hour maxAge used elsewhere, so it
+    // isn't a clock that runs out after some number of minutes — it lasts
+    // exactly as long as the installed app/browser stays open, and is gone
+    // once that's closed/removed, at which point logging back in starts a
+    // fresh session again. Admin login is untouched and keeps its own
+    // fixed-length session.
+    req.session.cookie.expires = false;
     res.redirect('/account');
   });
 });

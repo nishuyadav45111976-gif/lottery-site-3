@@ -458,13 +458,22 @@ router.get('/manifest.json', (req, res) => {
   res.send(
     JSON.stringify(
       {
-        name: siteName,
+        name: siteName + ' — My Account',
         short_name: siteName.length > 14 ? siteName.slice(0, 14) : siteName,
-        start_url: '/',
+        description: 'Track your followed numbers, tickets and results — installed as an app so you don\'t have to open the browser each time.',
+        // Opens straight into the user panel. If the person isn't logged
+        // in yet, /account redirects to /login on its own.
+        start_url: '/account',
+        scope: '/',
         display: 'standalone',
         background_color: '#f4f6f8',
         theme_color: '#1a9c6b',
-        icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        icons: [
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
       null,
       2
