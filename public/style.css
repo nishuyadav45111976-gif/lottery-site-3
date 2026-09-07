@@ -654,48 +654,106 @@ body.has-contact-bar .container {
   text-decoration: underline;
 }
 
-.scroll-grid {
-  overflow-x: auto;
+/* "Last 15 Days" frozen-pane table — the header row and date column are
+   separate strips kept in sync with the scrollable body via a few lines of
+   JS (see index.ejs), rather than relying on position:sticky inside a
+   horizontally-scrolling container. That combination is unreliable across
+   mobile browsers: setting overflow-x:auto on an element quietly forces
+   its overflow-y to become a scroll container too (per the CSS Overflow
+   spec), which hijacks position:sticky away from the page scroll entirely
+   — so the header/column just scroll off with everything else instead of
+   staying put. This structure sidesteps that trap altogether. */
+.freeze-grid {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  grid-template-rows: auto 1fr;
+  max-height: 420px;
   margin-top: 16px;
+  border: 1px solid var(--border);
   border-radius: 10px;
+  overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-
-.scroll-grid table {
-  margin-top: 0;
-  box-shadow: none;
-  /* position:sticky on table cells is unreliable in several mobile browsers
-     when the table uses border-collapse:collapse (the site-wide default) —
-     separate + zero spacing keeps the same visual look while letting the
-     sticky header row and sticky date column actually work. */
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.scroll-grid th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.scroll-grid td, .scroll-grid th {
-  border-right: 1px solid var(--border);
-}
-.scroll-grid td:last-child, .scroll-grid th:last-child {
-  border-right: none;
-}
-
-.scroll-grid td:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
   background: var(--card);
-  font-weight: 600;
 }
-.scroll-grid th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 2;
+.freeze-corner {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--header-navy);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  padding: 14px 12px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-sizing: border-box;
+}
+.freeze-header-scroll {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  background: var(--header-navy);
+}
+.freeze-header-row {
+  display: flex;
+}
+.freeze-header-cell {
+  box-sizing: border-box;
+  flex: 0 0 130px;
+  min-width: 130px;
+  padding: 14px 12px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-right: 1px solid rgba(255,255,255,0.15);
+  white-space: nowrap;
+}
+.freeze-dates-scroll {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+}
+.freeze-date-cell {
+  box-sizing: border-box;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.freeze-body-scroll {
+  grid-column: 2;
+  grid-row: 2;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.freeze-body-row {
+  display: flex;
+}
+.freeze-body-row:last-child .freeze-body-cell {
+  border-bottom: none;
+}
+.freeze-body-cell {
+  box-sizing: border-box;
+  flex: 0 0 130px;
+  min-width: 130px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--header-navy);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .number-grid {
