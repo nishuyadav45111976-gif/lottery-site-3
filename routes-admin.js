@@ -166,8 +166,9 @@ router.get('/settings', (req, res) => {
     homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
     homeContentTitle: db.get('settings.homeContentTitle').value() || '',
     homeContentBody: db.get('settings.homeContentBody').value() || '',
-    bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
-    bannerNoteText: db.get('settings.bannerNoteText').value() || '',
+    whatsappBusinessNumber: db.get('settings.whatsappBusinessNumber').value() || '',
+    whatsappTestNumber: db.get('settings.whatsappTestNumber').value() || '',
+    whatsappRecordsEnabled: !!db.get('settings.whatsappRecordsEnabled').value(),
     error: null, passwordError: null,
   });
 });
@@ -182,12 +183,12 @@ router.post('/home-content', (req, res) => {
   redirectWithFlash(res, '/admin/settings', 'Homepage text block saved');
 });
 
-router.post('/banner-note', (req, res) => {
-  const text = (req.body.text || '').trim();
-  db.set('settings.bannerNoteEnabled', req.body.enabled === 'on').write();
-  db.set('settings.bannerNoteText', text).write();
-  logAction(req, 'Banner note updated', text || '(empty)');
-  redirectWithFlash(res, '/admin/settings', 'Banner note saved');
+router.post('/settings/whatsapp', (req, res) => {
+  db.set('settings.whatsappBusinessNumber', String(req.body.whatsappBusinessNumber || '').trim()).write();
+  db.set('settings.whatsappTestNumber', String(req.body.whatsappTestNumber || '').trim()).write();
+  db.set('settings.whatsappRecordsEnabled', req.body.enabled === 'on').write();
+  logAction(req, 'WhatsApp settings updated', 'Dedicated WhatsApp number/test sender configuration changed');
+  redirectWithFlash(res, '/admin/settings', 'WhatsApp settings saved');
 });
 
 router.post('/settings/2fa/regenerate', (req, res) => {
@@ -245,8 +246,9 @@ router.post('/settings', (req, res) => {
       homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
       homeContentTitle: db.get('settings.homeContentTitle').value() || '',
       homeContentBody: db.get('settings.homeContentBody').value() || '',
-      bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
-      bannerNoteText: db.get('settings.bannerNoteText').value() || '',
+      whatsappBusinessNumber: db.get('settings.whatsappBusinessNumber').value() || '',
+      whatsappTestNumber: db.get('settings.whatsappTestNumber').value() || '',
+      whatsappRecordsEnabled: !!db.get('settings.whatsappRecordsEnabled').value(),
       error: 'Please enter a valid phone number (10-15 digits).',
       passwordError: null,
     });
@@ -257,6 +259,47 @@ router.post('/settings', (req, res) => {
   db.set('settings.contactType', contactType === 'whatsapp' ? 'whatsapp' : 'call').write();
   logAction(req, 'Settings updated', 'Contact details updated');
   redirectWithFlash(res, '/admin', 'Settings saved');
+});
+
+// ---------- WHATSAPP PERSONAL RECORD INBOX ----------
+router.get('/whatsapp', (req, res) => {
+  const messages = (db.get('whatsappIncomingMessages').value() || []).slice().sort((a,b) => String(b.receivedAt||'').localeCompare(String(a.receivedAt||'')));
+  const aliases = db.get('whatsappCategoryAliases').value() || [];
+  const lotteries = db.get('lotteries').value() || [];
+  res.render('admin-whatsapp', {
+    businessNumber: db.get('settings.whatsappBusinessNumber').value() || '',
+    testNumber: db.get('settings.whatsappTestNumber').value() || '',
+    enabled: !!db.get('settings.whatsappRecordsEnabled').value(), messages, aliases,
+    lotteries, flash: req.query.flash || null,
+  });
+});
+
+router.post('/whatsapp/settings', (req, res) => {
+  db.set('settings.whatsappBusinessNumber', String(req.body.businessNumber || '').trim()).write();
+  db.set('settings.whatsappTestNumber', String(req.body.testNumber || '').trim()).write();
+  db.set('settings.whatsappRecordsEnabled', req.body.enabled === 'on').write();
+  logAction(req, 'WhatsApp record settings updated', 'WhatsApp personal-record inbox settings changed');
+  redirectWithFlash(res, '/admin/whatsapp', 'WhatsApp settings saved');
+});
+
+router.post('/whatsapp/aliases', (req, res) => {
+  const lotteryId = String(req.body.lotteryId || '').trim();
+  const alias = String(req.body.alias || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const lottery = db.get('lotteries').find({ id: lotteryId }).value();
+  if (!lottery || !alias || alias.length > 80) return redirectWithFlash(res, '/admin/whatsapp', 'Please choose a category and enter a valid alias.');
+  const aliases = db.get('whatsappCategoryAliases').value() || [];
+  const exists = aliases.find(a => String(a.alias).toLowerCase() === alias);
+  if (exists) return redirectWithFlash(res, '/admin/whatsapp', 'That alias already exists.');
+  aliases.push({ id: makeId(), lotteryId, alias, active: true, createdAt: new Date().toISOString() });
+  db.set('whatsappCategoryAliases', aliases).write();
+  logAction(req, 'WhatsApp category alias added', `${alias} → ${lottery.name}`);
+  redirectWithFlash(res, '/admin/whatsapp', 'Alias added');
+});
+
+router.post('/whatsapp/aliases/:id/delete', (req, res) => {
+  db.get('whatsappCategoryAliases').remove({ id: req.params.id }).write();
+  logAction(req, 'WhatsApp category alias deleted', req.params.id);
+  redirectWithFlash(res, '/admin/whatsapp', 'Alias deleted');
 });
 
 // ---------- EDIT PAGES (site name + Disclaimer / Privacy / About content) ----------
@@ -323,8 +366,9 @@ router.post('/settings/password', (req, res) => {
       homeContentEnabled: !!db.get('settings.homeContentEnabled').value(),
       homeContentTitle: db.get('settings.homeContentTitle').value() || '',
       homeContentBody: db.get('settings.homeContentBody').value() || '',
-      bannerNoteEnabled: !!db.get('settings.bannerNoteEnabled').value(),
-      bannerNoteText: db.get('settings.bannerNoteText').value() || '',
+      whatsappBusinessNumber: db.get('settings.whatsappBusinessNumber').value() || '',
+      whatsappTestNumber: db.get('settings.whatsappTestNumber').value() || '',
+      whatsappRecordsEnabled: !!db.get('settings.whatsappRecordsEnabled').value(),
       error: null,
       passwordError,
     });

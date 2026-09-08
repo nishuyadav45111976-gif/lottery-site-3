@@ -39,6 +39,7 @@ const { translator } = require('./locales');
 const publicRoutes = require('./routes-public');
 const adminRoutes = require('./routes-admin');
 const userRoutes = require('./routes-user').router;
+const whatsappRoutes = require('./routes-whatsapp');
 
 const app = express();
 
@@ -64,7 +65,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '32kb', verify: (req, res, buf) => { req.rawBody = Buffer.from(buf); } }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '5m' : 0 }));
 
 app.get('/health', async (req, res) => {
@@ -89,7 +90,7 @@ app.use((req, res, next) => {
   if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   res.locals.csrfToken = req.session.csrfToken;
   if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
-    const exempt = req.path === '/login' || req.path === '/admin/login';
+    const exempt = req.path === '/login' || req.path === '/admin/login' || req.path === '/api/whatsapp/webhook';
     if (!exempt) {
       const supplied = req.body && req.body._csrf || req.get('x-csrf-token');
       const a = Buffer.from(String(supplied || '')); const b = Buffer.from(String(req.session.csrfToken || ''));
@@ -114,10 +115,6 @@ app.use((req, res, next) => {
   // Lets shared partials (header/footer) know we're inside the admin panel
   // without every single admin view having to pass it in manually.
   res.locals.isAdminPage = req.path.startsWith('/admin');
-  // Scopes the PWA "install as app" treatment (iOS full-screen meta tags,
-  // app icon) to just the user panel, per request — public results pages
-  // and the admin panel keep their original head tags untouched.
-  res.locals.isUserPanelPage = req.path.startsWith('/account') || req.path === '/login' || req.path === '/recover';
   res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
   res.locals.isAdminDashboardPage = req.path === '/admin' || req.path === '/admin/';
   res.locals.userSession = !!(req.session && req.session.userId);
@@ -127,11 +124,9 @@ app.use((req, res, next) => {
   const lang = (req.session && req.session.lang === 'hi') ? 'hi' : 'en';
   res.locals.lang = lang;
   res.locals.t = translator(lang);
-  res.locals.enableServiceWorker = !req.path.startsWith('/admin');
+  res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
   res.locals.agentPageEnabled = !!db.get('settings.agentPageEnabled').value();
-  res.locals.bannerNoteEnabled = !!db.get('settings.bannerNoteEnabled').value();
-  res.locals.bannerNoteText = db.get('settings.bannerNoteText').value() || '';
   res.locals.adminSessionExpiresAt = (req.session && req.session.isAdmin && req.session.adminLoginAt)
     ? req.session.adminLoginAt + ADMIN_SESSION_MAX_AGE_MS
     : null;
@@ -144,6 +139,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/whatsapp', whatsappRoutes);
 app.use('/', publicRoutes);
 app.use('/', userRoutes);
 app.use('/admin', adminRoutes);
