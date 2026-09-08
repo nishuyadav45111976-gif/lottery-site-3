@@ -29,20 +29,6 @@
   <button type="submit">Save Settings</button>
 </form>
 
-<h1 style="margin-top:36px;">WhatsApp Personal-Record Inbox</h1>
-<p class="subtitle">Configure the dedicated WhatsApp Business number used for the personal-record inbox. For testing, you can temporarily enter your own number here. The number is stored as configuration only; WhatsApp API credentials stay in environment variables.</p>
-<form class="form-box" method="POST" action="/admin/settings/whatsapp"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-  <label for="whatsappBusinessNumber">Dedicated WhatsApp Business Number</label>
-  <input type="tel" id="whatsappBusinessNumber" name="whatsappBusinessNumber" value="<%= whatsappBusinessNumber %>" placeholder="+91 98765 43210" pattern="[0-9+\s\-]{10,20}" />
-  <label for="whatsappTestNumber">Testing Sender Number</label>
-  <input type="tel" id="whatsappTestNumber" name="whatsappTestNumber" value="<%= whatsappTestNumber %>" placeholder="Your personal WhatsApp number" pattern="[0-9+\s\-]{10,20}" />
-  <div class="mode-switch" style="margin:12px 0;">
-    <button type="submit" name="enabled" value="off" class="<%= !whatsappRecordsEnabled ? 'active' : '' %>">Off</button>
-    <button type="submit" name="enabled" value="on" class="<%= whatsappRecordsEnabled ? 'active' : '' %>">On</button>
-  </div>
-  <button type="submit">Save WhatsApp Settings</button>
-</form>
-
 <h1 style="margin-top:36px;">Homepage Text Block</h1>
 <p class="subtitle">A block of your own text shown near the bottom of the homepage, above the contact bar — good for keywords, area names, or anything else you want visitors (and search engines) to see. Leave it off if you don't need it.</p>
 

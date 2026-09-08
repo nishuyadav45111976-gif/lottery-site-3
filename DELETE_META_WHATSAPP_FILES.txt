@@ -1,0 +1,8 @@
+DELETE THESE FILES FROM THE META/WHATSAPP INTEGRATION VERSION:
+routes-whatsapp.js
+admin-whatsapp.ejs
+WHATSAPP_SETUP.md
+
+This changes-only package is intended to be applied to the project version that contains the Meta WhatsApp integration we built. The included files are the clean versions of the files that were modified by that integration.
+
+IMPORTANT: Keep all pre-existing WhatsApp features in the project (WhatsApp contact option, agent application WhatsApp field, WhatsApp share buttons, etc.). This package removes only the Meta webhook/personal-record integration.

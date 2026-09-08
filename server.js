@@ -39,7 +39,6 @@ const { translator } = require('./locales');
 const publicRoutes = require('./routes-public');
 const adminRoutes = require('./routes-admin');
 const userRoutes = require('./routes-user').router;
-const whatsappRoutes = require('./routes-whatsapp');
 
 const app = express();
 
@@ -65,14 +64,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json({
-  limit: '32kb',
-  verify: (req, res, buf) => {
-    // Only retain raw JSON bytes for the signed WhatsApp webhook. Keeping
-    // raw bodies for every JSON request wastes memory and is unnecessary.
-    if (req.path === '/api/whatsapp/webhook') req.rawBody = Buffer.from(buf);
-  },
-}));
+app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '5m' : 0 }));
 
 app.get('/health', async (req, res) => {
@@ -97,7 +89,7 @@ app.use((req, res, next) => {
   if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   res.locals.csrfToken = req.session.csrfToken;
   if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
-    const exempt = req.path === '/login' || req.path === '/admin/login' || req.path === '/api/whatsapp/webhook';
+    const exempt = req.path === '/login' || req.path === '/admin/login';
     if (!exempt) {
       const supplied = req.body && req.body._csrf || req.get('x-csrf-token');
       const a = Buffer.from(String(supplied || '')); const b = Buffer.from(String(req.session.csrfToken || ''));
@@ -146,7 +138,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api/whatsapp', whatsappRoutes);
 app.use('/', publicRoutes);
 app.use('/', userRoutes);
 app.use('/admin', adminRoutes);
