@@ -184,8 +184,19 @@ router.post('/home-content', (req, res) => {
 });
 
 router.post('/settings/whatsapp', (req, res) => {
-  db.set('settings.whatsappBusinessNumber', String(req.body.whatsappBusinessNumber || '').trim()).write();
-  db.set('settings.whatsappTestNumber', String(req.body.whatsappTestNumber || '').trim()).write();
+  const cleanPhone = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length < 8 || digits.length > 15) return null;
+    return `+${digits}`;
+  };
+  const businessNumber = cleanPhone(req.body.whatsappBusinessNumber);
+  const testNumber = cleanPhone(req.body.whatsappTestNumber);
+  if (businessNumber === null || testNumber === null) {
+    return res.status(400).send('Please enter valid phone numbers with country code (8–15 digits).');
+  }
+  db.set('settings.whatsappBusinessNumber', businessNumber).write();
+  db.set('settings.whatsappTestNumber', testNumber).write();
   db.set('settings.whatsappRecordsEnabled', req.body.enabled === 'on').write();
   logAction(req, 'WhatsApp settings updated', 'Dedicated WhatsApp number/test sender configuration changed');
   redirectWithFlash(res, '/admin/settings', 'WhatsApp settings saved');
