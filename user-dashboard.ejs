@@ -12,6 +12,26 @@
   </div>
 
   <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %>
+  <% if (typeof error !== 'undefined' && error) { %><div class="error-msg"><%= error %></div><% } %>
+
+  <div class="card" id="quickUserEntry">
+    <h2>Quick Ticket Entry</h2>
+    <p class="subtitle">Numbers × amount, then the lottery name (the word "into" is optional) — e.g. <code>10,11,12,13×75 Rewari</code></p>
+    <div class="quick-entry-row">
+      <input type="text" id="quickUserInput" placeholder="10,11,12,13×75 into Rewari" autocomplete="off">
+      <button type="button" class="btn primary" id="quickUserSubmit">Add</button>
+    </div>
+    <div class="error-msg" id="quickUserError" style="display:none;"></div>
+    <form method="POST" id="quickUserForm" action="/account/quick-purchase" style="display:none;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="lotteryId" id="quickUserLotteryId" value="">
+      <input type="hidden" name="amount" id="quickUserAmount">
+      <input type="hidden" name="requestId" value="<%= quickEntryRequestId %>">
+      <div id="quickUserNumbersInputs"></div>
+    </form>
+  </div>
+  <script type="application/json" id="quickUserLotteriesData"><%- JSON.stringify(lotteries.map(function(l){return {id:l.id, name:l.name};})) %></script>
+  <script src="/user-quick-entry.js" defer></script>
 
   <div class="dashboard-nav-grid">
     <a class="dashboard-nav-card" href="/account/lotteries"><strong>Choose Lottery</strong><span>Open a lottery and enter ticket details</span></a>

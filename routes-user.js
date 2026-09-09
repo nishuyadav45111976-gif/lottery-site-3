@@ -162,7 +162,76 @@ router.get('/account', requireUser, (req, res) => {
   const lotteries = db.get('lotteries').value() || [];
   const watches = db.get('watchedNumbers').filter({ userId: user.id }).value();
   const notifications = db.get('notifications').filter({ userId: user.id }).sortBy('createdAt').reverse().value();
-  res.render('user-dashboard', { user, lotteries, watches, notifications, notice: req.query.notice || null });
+  // One idempotency key per page load for the dashboard's Quick Ticket
+  // Entry box, same pattern as the per-lottery numbers page.
+  const quickEntryRequestId = crypto.randomUUID();
+  res.render('user-dashboard', { user, lotteries, watches, notifications, notice: req.query.notice || null, error: req.query.error || null, quickEntryRequestId });
+});
+
+// ---------- QUICK TICKET ENTRY (User Dashboard) ----------
+// Same typed-format box as the Admin Dashboard's Quick Ticket Entry
+// (see routes-admin.js /quick-purchase and public/admin-quick-entry.js),
+// adapted for a signed-in user. Parsing of "10,11,12×75 into Rewari"
+// happens client-side in public/user-quick-entry.js, which resolves the
+// lottery name to an id and posts here as structured fields. Unlike the
+// admin version, this route attributes tickets to the signed-in user
+// (not "Internal Entry"), respects each lottery's entry cutoff, and is
+// de-duplicated the same way as the multi-select purchase form below.
+router.post('/account/quick-purchase', requireUser, (req, res) => {
+  const user = currentUser(req);
+  if (!user) return res.redirect('/login');
+
+  const lottery = db.get('lotteries').find({ id: req.body.lotteryId }).value();
+  if (!lottery) {
+    return res.redirect('/account?error=' + encodeURIComponent('Could not find that lottery — check the name and try again.'));
+  }
+
+  const ticketStatus = ticketEntryStatus(lottery);
+  if (ticketStatus.locked) {
+    return res.redirect('/account?error=' + encodeURIComponent(ticketStatus.message || `Ticket entry is closed for ${lottery.name}.`));
+  }
+
+  const requestId = String(req.body.requestId || '').trim();
+  if (!requestId || requestId.length > 100) {
+    return res.redirect('/account?error=' + encodeURIComponent('Invalid submission. Please refresh and try again.'));
+  }
+  const duplicate = db.get('purchases').find({ userId: user.id, batchId: requestId }).value();
+  if (duplicate) {
+    return res.redirect('/account?notice=' + encodeURIComponent('These tickets were already saved.'));
+  }
+
+  let numbers = req.body.numbers;
+  if (!Array.isArray(numbers)) numbers = numbers ? [numbers] : [];
+  numbers = [...new Set(numbers)].filter((n) => /^\d{2}$/.test(n));
+
+  const amountNum = parseFloat(req.body.amount);
+
+  if (!numbers.length || !Number.isFinite(amountNum) || amountNum < 0 || amountNum > 10000000) {
+    return res.redirect('/account?error=' + encodeURIComponent('Quick entry failed — check the numbers and amount and try again.'));
+  }
+  if (numbers.length > 100) {
+    return res.redirect('/account?error=' + encodeURIComponent('Too many numbers in one quick entry (max 100).'));
+  }
+
+  const now = new Date().toISOString();
+  const purchasesChain = db.get('purchases');
+  numbers.forEach((number, i) => {
+    purchasesChain.push({
+      id: makeId(),
+      lotteryId: lottery.id,
+      userId: user.id,
+      number,
+      buyerName: (user && user.name) ? String(user.name).trim() : 'User',
+      tickets: 1,
+      amount: amountNum,
+      requestId: `${requestId}:${i}`,
+      batchId: requestId,
+      createdAt: now,
+    });
+  });
+  purchasesChain.write();
+
+  return res.redirect('/account?notice=' + encodeURIComponent(`${numbers.length} number${numbers.length === 1 ? '' : 's'} added to ${lottery.name}.`));
 });
 
 router.get('/account/lotteries', requireUser, (req, res) => {
