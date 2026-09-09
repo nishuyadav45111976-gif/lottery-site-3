@@ -588,7 +588,35 @@ async function applyAutoSpecialStar() { return runAutoStar('specialLotteries', '
 // number only when literally every number has already been used today
 // (practically never, since there are 100 numbers for normal lotteries and
 // 1000 for Special).
+//
+// Multiple numbers often tie for lowest amount (most commonly ₹0, when
+// several/all numbers went unsold that round). When that happens, the pick
+// is made at RANDOM among the tied numbers instead of always the smallest
+// one, and the number this same lottery landed on last time is skipped
+// when another tied option exists — so a lottery with lots of empty
+// numbers doesn't keep reposting the exact same result day after day.
 const MISSED_RESULT_GRACE_SECONDS = 30;
+
+// Picks a number from `allNums` carrying the least money (per `byNumber`),
+// skipping anything already in `usedToday`. Walks tiers from lowest amount
+// upward; within whichever tier has an available number, picks randomly
+// among the tied candidates rather than always the smallest, and avoids
+// repeating `previousNumber` (this lottery's most recent past result) when
+// another tied candidate is available.
+function pickLowestAmountNumber(allNums, byNumber, usedToday, previousNumber) {
+  const tiers = [...new Set(allNums.map((n) => byNumber[n]))].sort((a, b) => a - b);
+  for (const tierAmount of tiers) {
+    const group = allNums.filter((n) => byNumber[n] === tierAmount && !usedToday.has(n));
+    if (!group.length) continue;
+    const pool = (group.length > 1 && previousNumber && group.includes(previousNumber))
+      ? group.filter((n) => n !== previousNumber)
+      : group;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  // Every number already used today (practically never) — fall back to the
+  // globally lowest-amount number rather than fail to post a result.
+  return allNums.slice().sort((a, b) => byNumber[a] - byNumber[b] || (a < b ? -1 : 1))[0];
+}
 
 async function runAutoFillMissedResults(lotteriesKey, resultsKey, purchasesKey, digits, startRoundFn) {
   if (!dbGet('settings.autoFillMissedResults').value()) return;
@@ -635,9 +663,13 @@ async function runAutoFillMissedResults(lotteriesKey, resultsKey, purchasesKey, 
       const n = String(p.number).padStart(digits, '0');
       byNumber[n] = (byNumber[n] || 0) + (Number(p.amount) || 0);
     });
-    allNums.sort((a, b) => byNumber[a] - byNumber[b] || (a < b ? -1 : 1));
 
-    const chosen = allNums.find((n) => !usedToday.has(n)) || allNums[0];
+    const previousResult = results
+      .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false && r.date < todayStr)
+      .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    const previousNumber = previousResult ? String(previousResult.resultText || '').trim() : null;
+
+    const chosen = pickLowestAmountNumber(allNums, byNumber, usedToday, previousNumber);
     usedToday.add(chosen);
 
     const nowIso = new Date().toISOString();
