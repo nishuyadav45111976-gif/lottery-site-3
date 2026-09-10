@@ -4,6 +4,6 @@ function requireLogin(req, res, next) {
   const storedVersion = Number(db.get('settings.adminSessionVersion').value() || 0);
   if (req.session && req.session.isAdmin && currentVersion === storedVersion) return next();
   if (req.session) delete req.session.isAdmin;
-  return res.redirect('/admin/login');
+  return res.redirect('/billionaire/login');
 }
 module.exports = { requireLogin };

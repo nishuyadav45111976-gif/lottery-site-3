@@ -425,7 +425,7 @@ router.get('/lottery/:slug/frequency', async (req, res) => {
 router.get('/robots.txt', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
   res.type('text/plain');
-  res.send(`User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${base}/sitemap.xml\n`);
+  res.send(`User-agent: *\nAllow: /\n\nSitemap: ${base}/sitemap.xml\n`);
 });
 
 // A simple sitemap of every public page, for search engines
@@ -462,7 +462,7 @@ router.get('/manifest.json', (req, res) => {
         short_name: siteName.length > 14 ? siteName.slice(0, 14) : siteName,
         description: 'Track your followed numbers, tickets and results — installed as an app so you don\'t have to open the browser each time.',
         // Opens straight into the user panel. If the person isn't logged
-        // in yet, /account redirects to /login on its own.
+        // in yet, /account redirects to /millionaire on its own.
         start_url: '/account',
         scope: '/',
         display: 'standalone',

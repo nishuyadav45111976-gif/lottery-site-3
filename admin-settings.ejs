@@ -1,8 +1,8 @@
 <%- include('partial-header', { title: 'Website Settings' , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin">&larr; Dashboard</a>
+<a class="back-link" href="/billionaire">&larr; Dashboard</a>
 <h1>Website Settings</h1>
-<p class="subtitle">Contact details shown on the site. Looking for the website name, Disclaimer, Privacy Policy, or About page? Those moved to <a href="/admin/pages">Edit Pages</a>.</p>
+<p class="subtitle">Contact details shown on the site. Looking for the website name, Disclaimer, Privacy Policy, or About page? Those moved to <a href="/billionaire/pages">Edit Pages</a>.</p>
 
 <% if (typeof flash !== 'undefined' && flash) { %>
   <div class="flash-msg">✓ <%= flash %></div>
@@ -12,7 +12,7 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="contactLabel">Contact Bar Label</label>
   <input type="text" id="contactLabel" name="contactLabel" value="<%= currentContactLabel %>" placeholder="Help & Queries" />
 
@@ -32,7 +32,7 @@
 <h1 style="margin-top:36px;">Homepage Text Block</h1>
 <p class="subtitle">A block of your own text shown near the bottom of the homepage, above the contact bar — good for keywords, area names, or anything else you want visitors (and search engines) to see. Leave it off if you don't need it.</p>
 
-<form method="POST" action="/admin/home-content" id="homeContentToggleForm">
+<form method="POST" action="/billionaire/home-content" id="homeContentToggleForm">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <input type="hidden" name="title" value="<%= homeContentTitle %>">
   <input type="hidden" name="body" value="<%= homeContentBody %>">
@@ -42,7 +42,7 @@
   </div>
 </form>
 
-<form class="form-box" method="POST" action="/admin/home-content">
+<form class="form-box" method="POST" action="/billionaire/home-content">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <input type="hidden" name="enabled" value="<%= homeContentEnabled ? 'on' : 'off' %>">
 
@@ -62,7 +62,7 @@
   <div class="error-msg"><%= passwordError %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/settings/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/settings/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="currentPassword">Current Password</label>
   <input type="password" id="currentPassword" name="currentPassword" required />
 
@@ -77,10 +77,10 @@
 </form>
 
 <h1 style="margin-top:36px;">Admin 2FA</h1>
-<p class="subtitle">Authenticator-based two-factor authentication is optional. When enabled, admin sign-in requires your authenticator code.</p><a class="btn secondary" href="/admin/settings/2fa">View 2FA Status</a>
+<p class="subtitle">Authenticator-based two-factor authentication is optional. When enabled, admin sign-in requires your authenticator code.</p><a class="btn secondary" href="/billionaire/settings/2fa">View 2FA Status</a>
 
 <h1 style="margin-top:36px;">Backup Your Data</h1>
 <p class="subtitle">Download everything on this site — lotteries, results, and ticket purchase records — as a single file you can keep for yourself.</p>
-<a class="btn secondary" href="/admin/settings/backup">Download Backup</a>
+<a class="btn secondary" href="/billionaire/settings/backup">Download Backup</a>
 
 <%- include('partial-footer') %>

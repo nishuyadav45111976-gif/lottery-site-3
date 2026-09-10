@@ -11,7 +11,7 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/login"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/login"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="password">Password</label>
   <input type="password" id="password" name="password" autofocus required autocomplete="current-password" />
   <% if (otpRequired) { %><label for="otp">Authenticator code</label>

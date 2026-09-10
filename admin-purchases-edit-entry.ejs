@@ -1,6 +1,6 @@
 <%- include('partial-header', { title: lottery.name + ' — Edit Entry' , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>">&larr; No. <%= number %></a>
+<a class="back-link" href="/billionaire/lottery/<%= lottery.id %>/purchases/<%= number %>">&larr; No. <%= number %></a>
 <h1><%= lottery.name %> &mdash; Edit Entry</h1>
 <p class="subtitle">No. <%= number %></p>
 
@@ -8,7 +8,7 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/lottery/<%= lottery.id %>/purchases/<%= number %>/<%= entry.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/lottery/<%= lottery.id %>/purchases/<%= number %>/<%= entry.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="userId">User account</label>
   <select id="userId" name="userId">
     <option value="">— Internal / no account —</option>

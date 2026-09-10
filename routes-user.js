@@ -15,7 +15,7 @@ function requireUser(req, res, next) {
     if (user && user.active && Number(user.sessionVersion || 0) === Number(req.session.userSessionVersion || 0)) return next();
     delete req.session.userId;
   }
-  return res.redirect('/login');
+  return res.redirect('/millionaire');
 }
 
 function currentUser(req) {
@@ -111,15 +111,20 @@ router.post('/recover', (req, res) => {
   if (!user || !user.recoveryCodeHash || !verifyPassword(recoveryCode, user.recoveryCodeHash)) return res.render('user-recover', { error: 'Recovery details are incorrect.', notice: null });
   if (newPassword.length < 8) return res.render('user-recover', { error: 'New password must be at least 8 characters.', notice: null });
   db.get('users').find({ id: user.id }).assign({ passwordHash: hashPassword(newPassword), sessionVersion: Number(user.sessionVersion||0)+1, recoveryCodeHash: null }).write();
-  res.redirect('/login?notice=' + encodeURIComponent('Password reset successfully. You can now log in.'));
+  res.redirect('/millionaire?notice=' + encodeURIComponent('Password reset successfully. You can now log in.'));
 });
 
-router.get('/login', (req, res) => {
+router.get('/millionaire', (req, res) => {
   if (req.session && req.session.userId) return res.redirect('/account');
-  res.render('user-login', { error: null, notice: req.query.notice || null });
+  res.render('user-login', {
+    error: null,
+    notice: req.query.notice || null,
+    title: 'Player Login',
+    metaDescription: 'Log in to check your numbers, ticket history, and results.',
+  });
 });
 
-router.post('/login', (req, res) => {
+router.post('/millionaire', (req, res) => {
   const userCode = (req.body.userCode || '').trim();
   const password = req.body.password || '';
   const key = String(req.ip || '') + ':' + userCode.toLowerCase();
@@ -153,12 +158,12 @@ router.post('/login', (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/login'));
+  req.session.destroy(() => res.redirect('/millionaire'));
 });
 
 router.get('/account', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) { delete req.session.userId; return res.redirect('/login'); }
+  if (!user) { delete req.session.userId; return res.redirect('/millionaire'); }
   const lotteries = db.get('lotteries').value() || [];
   const watches = db.get('watchedNumbers').filter({ userId: user.id }).value();
   const notifications = db.get('notifications').filter({ userId: user.id }).sortBy('createdAt').reverse().value();
@@ -179,7 +184,7 @@ router.get('/account', requireUser, (req, res) => {
 // de-duplicated the same way as the multi-select purchase form below.
 router.post('/account/quick-purchase', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) return res.redirect('/login');
+  if (!user) return res.redirect('/millionaire');
 
   const lottery = db.get('lotteries').find({ id: req.body.lotteryId }).value();
   if (!lottery) {
@@ -245,7 +250,7 @@ router.get('/account/lotteries', requireUser, (req, res) => {
 
 router.post('/account/lotteries/:id/favorite', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) return res.redirect('/login');
+  if (!user) return res.redirect('/millionaire');
   const current = user.favoriteLotteryIds || [];
   const lotteryId = req.params.id;
   const updated = current.includes(lotteryId) ? current.filter((id) => id !== lotteryId) : [...current, lotteryId];
@@ -296,7 +301,7 @@ router.get('/account/numbers/:lotteryId', requireUser, (req, res) => {
 
 router.get('/account/tickets', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) return res.redirect('/login');
+  if (!user) return res.redirect('/millionaire');
   const lotteries = db.get('lotteries').value() || [];
   const purchases = db.get('purchases').filter({ userId: user.id }).value().slice().sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const entries = purchases.map(p => {
@@ -317,7 +322,7 @@ function csvField(value) {
 
 router.get('/account/tickets/export.csv', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) return res.redirect('/login');
+  if (!user) return res.redirect('/millionaire');
   const lotteries = db.get('lotteries').value() || [];
   const purchases = db.get('purchases').filter({ userId: user.id }).value().slice().sort((a,b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
 
@@ -335,7 +340,7 @@ router.get('/account/tickets/export.csv', requireUser, (req, res) => {
 
 router.get('/account/settings', requireUser, (req, res) => {
   const user = currentUser(req);
-  if (!user) { delete req.session.userId; return res.redirect('/login'); }
+  if (!user) { delete req.session.userId; return res.redirect('/millionaire'); }
   res.render('user-settings', { user, notice: req.query.notice || null, error: req.query.error || null });
 });
 

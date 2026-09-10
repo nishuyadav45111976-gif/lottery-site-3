@@ -46,11 +46,11 @@ function normalizeDrawTime(drawTime) {
   return `${h}:${m}`;
 }
 
-router.get('/login', (req, res) => {
+router.get('/millionaire', (req, res) => {
   res.render('admin-login', { error: null, flash: req.query.flash || null, otpRequired: !!db.get('settings.adminTotpSecret').value() });
 });
 
-router.post('/login', (req, res) => {
+router.post('/millionaire', (req, res) => {
   const { password, otp } = req.body;
   const ip = req.ip;
   const state = getAttemptState(ip);
@@ -80,7 +80,7 @@ router.post('/login', (req, res) => {
       const log = db.get('auditLog').value() || [];
       log.push({ id: makeId(), action: 'Logged in', detail: '', ip, timestamp: new Date().toISOString() });
       db.set('auditLog', log.slice(-200)).write();
-      return res.redirect('/admin');
+      return res.redirect('/billionaire');
     });
   }
 
@@ -99,12 +99,12 @@ router.post('/login', (req, res) => {
 });
 
 router.get('/2fa/setup', (req, res) => {
-  if (!req.session.pendingAdmin2fa || !req.session.pendingAdmin2fa.secret) return res.redirect('/admin/login');
+  if (!req.session.pendingAdmin2fa || !req.session.pendingAdmin2fa.secret) return res.redirect('/billionaire/login');
   res.render('admin-2fa-setup', { secret: req.session.pendingAdmin2fa.secret, otpauth: req.session.pendingAdmin2fa.otpauth, error: null });
 });
 
 router.post('/2fa/setup', (req, res) => {
-  if (!req.session.pendingAdmin2fa || !req.session.pendingAdmin2fa.secret) return res.redirect('/admin/login');
+  if (!req.session.pendingAdmin2fa || !req.session.pendingAdmin2fa.secret) return res.redirect('/billionaire/login');
   const code = String(req.body.otp || '').replace(/\s+/g, '');
   if (!authenticator.check(code, req.session.pendingAdmin2fa.secret)) return res.render('admin-2fa-setup', { secret: req.session.pendingAdmin2fa.secret, otpauth: req.session.pendingAdmin2fa.otpauth, error: 'That code is not valid. Check your authenticator and try again.' });
   db.set('settings.adminTotpSecret', req.session.pendingAdmin2fa.secret).write();
@@ -116,11 +116,11 @@ router.post('/2fa/setup', (req, res) => {
     req.session.adminSessionVersion = Number(db.get('settings.adminSessionVersion').value() || 0);
     req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
     logAction({ ip: req.ip }, 'Admin 2FA enabled', 'Authenticator setup completed');
-    res.redirect('/admin?flash=' + encodeURIComponent('2FA enabled.'));
+    res.redirect('/billionaire?flash=' + encodeURIComponent('2FA enabled.'));
   });
 });
 
-router.post('/logout', (req, res) => { req.session.destroy(() => res.redirect('/admin/login')); });
+router.post('/logout', (req, res) => { req.session.destroy(() => res.redirect('/billionaire/login')); });
 
 // Everything below this line requires login
 router.use(requireLogin);
@@ -177,13 +177,13 @@ router.post('/home-content', (req, res) => {
   db.set('settings.homeContentTitle', title).write();
   db.set('settings.homeContentBody', body).write();
   logAction(req, 'Homepage text block updated', title || '(untitled)');
-  redirectWithFlash(res, '/admin/settings', 'Homepage text block saved');
+  redirectWithFlash(res, '/billionaire/settings', 'Homepage text block saved');
 });
 
 router.post('/settings/2fa/regenerate', (req, res) => {
   const password=String(req.body.currentPassword||''); const otp=String(req.body.otp||'').replace(/\s+/g,''); const hash=db.get('settings.adminPasswordHash').value(); const secret=db.get('settings.adminTotpSecret').value()||'';
   if(!verifyPassword(password,hash)||!secret||!authenticator.check(otp,secret)) return res.status(403).send('Password or current authenticator code is incorrect.');
-  const next=authenticator.generateSecret(); db.set('settings.adminTotpSecret',next).write(); db.set('settings.adminSessionVersion',Number(db.get('settings.adminSessionVersion').value()||0)+1).write(); logAction(req,'Admin 2FA regenerated','All admin sessions invalidated.'); req.session.destroy(()=>res.redirect('/admin/login?flash='+encodeURIComponent('2FA was regenerated. Set up the new secret before logging in.')));
+  const next=authenticator.generateSecret(); db.set('settings.adminTotpSecret',next).write(); db.set('settings.adminSessionVersion',Number(db.get('settings.adminSessionVersion').value()||0)+1).write(); logAction(req,'Admin 2FA regenerated','All admin sessions invalidated.'); req.session.destroy(()=>res.redirect('/billionaire/login?flash='+encodeURIComponent('2FA was regenerated. Set up the new secret before logging in.')));
 });
 
 router.post('/settings/2fa/disable', (req, res) => {
@@ -199,7 +199,7 @@ router.post('/settings/2fa/disable', (req, res) => {
   db.set('settings.adminTotpSecret', '').write();
   db.set('settings.adminSessionVersion', Number(db.get('settings.adminSessionVersion').value() || 0) + 1).write();
   logAction(req, 'Admin 2FA disabled', '2FA was disabled after password and current authenticator verification.');
-  req.session.destroy(() => res.redirect('/admin/login?flash=' + encodeURIComponent('Admin 2FA was disabled. Enable it again before public launch.')));
+  req.session.destroy(() => res.redirect('/billionaire/login?flash=' + encodeURIComponent('Admin 2FA was disabled. Enable it again before public launch.')));
 });
 
 router.post('/settings/2fa/enable', (req, res) => {
@@ -208,14 +208,14 @@ router.post('/settings/2fa/enable', (req, res) => {
   if (!hash || !verifyPassword(password, hash)) {
     return res.status(403).send('Current admin password is incorrect.');
   }
-  if (db.get('settings.adminTotpSecret').value()) return res.redirect('/admin/settings/2fa');
+  if (db.get('settings.adminTotpSecret').value()) return res.redirect('/billionaire/settings/2fa');
 
   const secret = authenticator.generateSecret();
   req.session.pendingAdmin2fa = {
     secret,
     otpauth: authenticator.keyuri('admin', process.env.ADMIN_2FA_ISSUER || 'Lottery Results', secret),
   };
-  return res.redirect('/admin/2fa/setup');
+  return res.redirect('/billionaire/2fa/setup');
 });
 
 router.get('/settings/2fa', (req, res) => {
@@ -244,7 +244,7 @@ router.post('/settings', (req, res) => {
   db.set('settings.contactLabel', (contactLabel || '').trim() || 'Help & Queries').write();
   db.set('settings.contactType', contactType === 'whatsapp' ? 'whatsapp' : 'call').write();
   logAction(req, 'Settings updated', 'Contact details updated');
-  redirectWithFlash(res, '/admin', 'Settings saved');
+  redirectWithFlash(res, '/billionaire', 'Settings saved');
 });
 
 // ---------- EDIT PAGES (site name + Disclaimer / Privacy / About content) ----------
@@ -278,7 +278,7 @@ router.post('/pages', (req, res) => {
   db.set('settings.aboutText', (aboutText || '').trim()).write();
   db.set('settings.faqText', (faqText || '').trim()).write();
   logAction(req, 'Pages updated', `Site name: ${siteName.trim()}`);
-  redirectWithFlash(res, '/admin/pages', 'Pages saved');
+  redirectWithFlash(res, '/billionaire/pages', 'Pages saved');
 });
 
 // ---------- BACKUP EXPORT ----------
@@ -331,7 +331,7 @@ router.post('/settings/password', (req, res) => {
   logAction(req, 'Password changed', '');
   // Log out all sessions (including this one) so everyone has to log back
   // in with the new password.
-  req.session.destroy(() => res.redirect('/admin/login?flash=' + encodeURIComponent('Password changed. Please log in.')));
+  req.session.destroy(() => res.redirect('/billionaire/login?flash=' + encodeURIComponent('Password changed. Please log in.')));
 });
 
 // ---------- DASHBOARD ----------
@@ -506,7 +506,7 @@ router.post('/lottery/new', (req, res) => {
     .write();
 
   logAction(req, 'Lottery added', name.trim());
-  redirectWithFlash(res, '/admin', 'Lottery added');
+  redirectWithFlash(res, '/billionaire', 'Lottery added');
 });
 
 // ---------- EDIT LOTTERY (name, draw time) ----------
@@ -535,7 +535,7 @@ router.post('/lottery/:id/edit', (req, res) => {
     .write();
 
   logAction(req, 'Lottery updated', `${lottery.name} → ${name.trim()}`);
-  redirectWithFlash(res, '/admin', 'Lottery updated');
+  redirectWithFlash(res, '/billionaire', 'Lottery updated');
 });
 
 // ---------- AUTO-FILL MISSED RESULTS ----------
@@ -547,7 +547,7 @@ router.post('/auto-fill-missed-results', (req, res) => {
   const enabled = req.body.enabled === 'on';
   db.set('settings.autoFillMissedResults', enabled).write();
   logAction(req, 'Auto-Fill Missed Results changed', enabled ? 'Enabled' : 'Disabled');
-  redirectWithFlash(res, '/admin', enabled ? 'Auto-Fill Missed Results enabled.' : 'Auto-Fill Missed Results turned off.');
+  redirectWithFlash(res, '/billionaire', enabled ? 'Auto-Fill Missed Results enabled.' : 'Auto-Fill Missed Results turned off.');
 });
 
 // ---------- FEATURED LOTTERY (Manual/Automatic — original "star" feature) ----------
@@ -564,10 +564,10 @@ router.post('/star-mode', (req, res) => {
   logAction(req, 'Featured mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
   if (mode === 'auto') {
     db.applyAutoStar().catch(() => {}).finally(() => {
-      redirectWithFlash(res, '/admin', 'Automatic Featured mode enabled.');
+      redirectWithFlash(res, '/billionaire', 'Automatic Featured mode enabled.');
     });
   } else {
-    redirectWithFlash(res, '/admin', 'Switched back to manual Featured selection.');
+    redirectWithFlash(res, '/billionaire', 'Switched back to manual Featured selection.');
   }
 });
 
@@ -576,7 +576,7 @@ router.post('/lottery/:id/star', (req, res) => {
   if (!lottery) return res.status(404).send('Lottery not found');
 
   if (db.get('settings.starMode').value() === 'auto') {
-    return redirectWithFlash(res, '/admin', 'Switch to Manual Featured mode first to pick a lottery by hand.');
+    return redirectWithFlash(res, '/billionaire', 'Switch to Manual Featured mode first to pick a lottery by hand.');
   }
 
   if (lottery.starred) {
@@ -592,7 +592,7 @@ router.post('/lottery/:id/star', (req, res) => {
     logAction(req, 'Featured lottery', lottery.name);
   }
 
-  res.redirect('/admin');
+  res.redirect('/billionaire');
 });
 
 // ---------- STAR LOTTERY (separate from Featured — many at once) ----------
@@ -611,7 +611,7 @@ router.post('/lottery/:id/star-lottery', (req, res) => {
   db.get('lotteries').find({ id: lottery.id }).assign({ starLottery: next }).write();
   logAction(req, next ? 'Starred lottery' : 'Unstarred lottery', lottery.name);
 
-  res.redirect('/admin');
+  res.redirect('/billionaire');
 });
 
 
@@ -637,7 +637,7 @@ router.post('/lottery/:id/main', (req, res) => {
     logAction(req, 'Added to Main', lottery.name);
   }
 
-  res.redirect('/admin');
+  res.redirect('/billionaire');
 });
 
 // Delete a lottery (and its results)
@@ -650,7 +650,7 @@ router.post('/lottery/:id/delete', (req, res) => {
   db.get('watchedNumbers').remove({ lotteryId: id }).write();
   db.get('notifications').remove({ lotteryId: id }).write();
   logAction(req, 'Lottery deleted', lottery ? lottery.name : id);
-  redirectWithFlash(res, '/admin', 'Lottery deleted');
+  redirectWithFlash(res, '/billionaire', 'Lottery deleted');
 });
 
 // ---------- ADD / UPDATE RESULT ----------
@@ -804,7 +804,7 @@ router.post('/lottery/:id/result', async (req, res) => {
   }
 
   logAction(req, 'Result saved', `${lottery.name} — ${date}: ${resultText.trim()}${scheduledFor ? ` (scheduled for ${scheduledFor})` : ''}`);
-  redirectWithFlash(res, `/admin/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
+  redirectWithFlash(res, `/billionaire/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
 });
 
 // Soft-delete: mark as deleted but keep it in the trash so it can be undone
@@ -815,7 +815,7 @@ router.post('/lottery/:id/result/:resultId/delete', (req, res) => {
     .assign({ deletedAt: new Date().toISOString() })
     .write();
   logAction(req, 'Result deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/lottery/${req.params.id}/result`, 'Result deleted (restore it below if that was a mistake)');
+  redirectWithFlash(res, `/billionaire/lottery/${req.params.id}/result`, 'Result deleted (restore it below if that was a mistake)');
 });
 
 // Restore a soft-deleted result
@@ -826,7 +826,7 @@ router.post('/lottery/:id/result/:resultId/restore', (req, res) => {
     .assign({ deletedAt: null })
     .write();
   logAction(req, 'Result restored', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/lottery/${req.params.id}/result`, 'Result restored');
+  redirectWithFlash(res, `/billionaire/lottery/${req.params.id}/result`, 'Result restored');
 });
 
 // Permanently remove a soft-deleted result from the trash
@@ -834,7 +834,7 @@ router.post('/lottery/:id/result/:resultId/purge', (req, res) => {
   const result = db.get('results').find({ id: req.params.resultId }).value();
   db.get('results').remove({ id: req.params.resultId }).write();
   logAction(req, 'Result permanently deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/lottery/${req.params.id}/result`, 'Permanently deleted');
+  redirectWithFlash(res, `/billionaire/lottery/${req.params.id}/result`, 'Permanently deleted');
 });
 
 // ---------- TICKET PURCHASE TRACKING (admin-only bookkeeping) ----------
@@ -944,8 +944,8 @@ router.get('/lottery/:id/purchases/:number', (req, res) => {
 router.post('/quick-purchase', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.body.lotteryId }).value();
   const backPath = req.body.returnTo === 'lottery' && lottery
-    ? `/admin/lottery/${encodeURIComponent(lottery.id)}/purchases`
-    : '/admin';
+    ? `/billionaire/lottery/${encodeURIComponent(lottery.id)}/purchases`
+    : '/billionaire';
 
   if (!lottery) {
     return res.redirect(backPath + '?flash=' + encodeURIComponent('Could not find that lottery — check the name and try again.'));
@@ -1031,7 +1031,7 @@ router.post('/lottery/:id/purchases/:number', (req, res) => {
     .write();
 
   logAction(req, 'Purchase entry added', `${lottery.name} No.${number} — ${effectiveBuyerName} (${ticketsNum} tkt)`);
-  redirectWithFlash(res, `/admin/lottery/${lottery.id}/purchases/${number}`, 'Entry added');
+  redirectWithFlash(res, `/billionaire/lottery/${lottery.id}/purchases/${number}`, 'Entry added');
 });
 
 // ---------- EDIT A SINGLE TICKET PURCHASE ENTRY ----------
@@ -1080,14 +1080,14 @@ router.post('/lottery/:id/purchases/:number/:entryId/edit', (req, res) => {
     .write();
 
   logAction(req, 'Purchase entry updated', `${lottery.name} No.${number} — ${effectiveBuyerName}`);
-  redirectWithFlash(res, `/admin/lottery/${lottery.id}/purchases/${number}`, 'Entry updated');
+  redirectWithFlash(res, `/billionaire/lottery/${lottery.id}/purchases/${number}`, 'Entry updated');
 });
 
 router.post('/lottery/:id/purchases/:number/:entryId/delete', (req, res) => {
   const entry = db.get('purchases').find({ id: req.params.entryId }).value();
   db.get('purchases').remove({ id: req.params.entryId }).write();
   logAction(req, 'Purchase entry deleted', entry ? `No.${entry.number} — ${entry.buyerName}` : req.params.entryId);
-  redirectWithFlash(res, `/admin/lottery/${req.params.id}/purchases/${req.params.number}`, 'Entry deleted');
+  redirectWithFlash(res, `/billionaire/lottery/${req.params.id}/purchases/${req.params.number}`, 'Entry deleted');
 });
 
 // ---------- AUDIT LOG ----------
@@ -1175,10 +1175,10 @@ router.post('/users', (req, res) => {
 
 router.post('/users/:id/toggle', (req, res) => {
   const user = db.get('users').find({ id: req.params.id }).value();
-  if (!user) return res.redirect('/admin/users');
+  if (!user) return res.redirect('/billionaire/users');
   db.get('users').find({ id: user.id }).assign({ active: !user.active, sessionVersion: Number(user.sessionVersion || 0) + 1 }).write();
   logAction(req, user.active ? 'User disabled' : 'User enabled', `${user.name} (${user.userCode})`);
-  redirectWithFlash(res, '/admin/users/existing', 'User status updated');
+  redirectWithFlash(res, '/billionaire/users/existing', 'User status updated');
 });
 
 // View one user's purchased lottery numbers and ticket totals for the
@@ -1238,22 +1238,22 @@ router.get('/users/:id', (req, res) => {
 
 router.post('/users/:id/recovery-code', (req, res) => {
   const user = db.get('users').find({ id: req.params.id }).value();
-  if (!user) return redirectWithFlash(res, '/admin/users/existing', 'User account not found');
+  if (!user) return redirectWithFlash(res, '/billionaire/users/existing', 'User account not found');
   const code = makeRecoveryCode();
   db.get('users').find({ id: user.id }).assign({ recoveryCodeHash: hashPassword(code) }).write();
   logAction(req, 'User recovery code regenerated', `${user.name} (${user.userCode})`);
   req.session.recoveryCodeNotice = { userId:user.id, code };
-  redirectWithFlash(res, '/admin/users/existing', `Recovery code generated for ${user.name}. It will be shown once on the next page.`);
+  redirectWithFlash(res, '/billionaire/users/existing', `Recovery code generated for ${user.name}. It will be shown once on the next page.`);
 });
 
 router.post('/users/:id/password', (req, res) => {
   const user = db.get('users').find({ id: req.params.id }).value();
-  if (!user) return redirectWithFlash(res, '/admin/users/existing', 'User account not found');
+  if (!user) return redirectWithFlash(res, '/billionaire/users/existing', 'User account not found');
   const password = req.body.password || '';
-  if (password.length < 8) return redirectWithFlash(res, '/admin/users/existing', 'Password must be at least 8 characters');
+  if (password.length < 8) return redirectWithFlash(res, '/billionaire/users/existing', 'Password must be at least 8 characters');
   db.get('users').find({ id: user.id }).assign({ passwordHash: hashPassword(password), sessionVersion: Number(user.sessionVersion || 0) + 1 }).write();
   logAction(req, 'User password reset', `${user.name} (${user.userCode})`);
-  redirectWithFlash(res, '/admin/users/existing', `Password reset for ${user.name}`);
+  redirectWithFlash(res, '/billionaire/users/existing', `Password reset for ${user.name}`);
 });
 
 // ==================== SPECIAL LOTTERY (000-999 games) ====================
@@ -1342,10 +1342,10 @@ router.post('/special/star-mode', (req, res) => {
   logAction(req, 'Special Featured mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
   if (mode === 'auto') {
     db.applyAutoSpecialStar().catch(() => {}).finally(() => {
-      redirectWithFlash(res, '/admin/special', 'Automatic Featured mode enabled.');
+      redirectWithFlash(res, '/billionaire/special', 'Automatic Featured mode enabled.');
     });
   } else {
-    redirectWithFlash(res, '/admin/special', 'Switched back to manual Featured selection.');
+    redirectWithFlash(res, '/billionaire/special', 'Switched back to manual Featured selection.');
   }
 });
 
@@ -1353,7 +1353,7 @@ router.post('/special/lottery/:id/star', (req, res) => {
   const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Special lottery not found');
   if (db.get('settings.specialStarMode').value() === 'auto') {
-    return redirectWithFlash(res, '/admin/special', 'Switch to Manual Featured mode first to pick a lottery by hand.');
+    return redirectWithFlash(res, '/billionaire/special', 'Switch to Manual Featured mode first to pick a lottery by hand.');
   }
   if (lottery.starred) {
     db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: false }).write();
@@ -1365,7 +1365,7 @@ router.post('/special/lottery/:id/star', (req, res) => {
     db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: true }).write();
     logAction(req, 'Featured special lottery', lottery.name);
   }
-  redirectWithFlash(res, '/admin/special', 'Updated');
+  redirectWithFlash(res, '/billionaire/special', 'Updated');
 });
 
 // Star Lottery for special lotteries — same independent, always-available
@@ -1379,7 +1379,7 @@ router.post('/special/lottery/:id/star-lottery', (req, res) => {
   db.get('specialLotteries').find({ id: lottery.id }).assign({ starLottery: next }).write();
   logAction(req, next ? 'Starred special lottery' : 'Unstarred special lottery', lottery.name);
 
-  redirectWithFlash(res, '/admin/special', 'Updated');
+  redirectWithFlash(res, '/billionaire/special', 'Updated');
 });
 
 router.get('/special/lottery/new', (req, res) => {
@@ -1401,7 +1401,7 @@ router.post('/special/lottery/new', (req, res) => {
   }).write();
 
   logAction(req, 'Special lottery added', name.trim());
-  redirectWithFlash(res, '/admin/special', 'Special lottery added');
+  redirectWithFlash(res, '/billionaire/special', 'Special lottery added');
 });
 
 router.get('/special/lottery/:id/edit', (req, res) => {
@@ -1420,7 +1420,7 @@ router.post('/special/lottery/:id/edit', (req, res) => {
 
   db.get('specialLotteries').find({ id: lottery.id }).assign({ name: name.trim(), drawTime: normalizedDrawTime }).write();
   logAction(req, 'Special lottery updated', `${lottery.name} → ${name.trim()}`);
-  redirectWithFlash(res, '/admin/special', 'Special lottery updated');
+  redirectWithFlash(res, '/billionaire/special', 'Special lottery updated');
 });
 
 router.post('/special/lottery/:id/delete', (req, res) => {
@@ -1431,7 +1431,7 @@ router.post('/special/lottery/:id/delete', (req, res) => {
   db.get('specialPurchases').remove({ lotteryId: lottery.id }).write();
   db.get('specialPurchaseHistory').remove({ lotteryId: lottery.id }).write();
   logAction(req, 'Special lottery deleted', lottery.name);
-  redirectWithFlash(res, '/admin/special', 'Special lottery and all its results/purchases deleted');
+  redirectWithFlash(res, '/billionaire/special', 'Special lottery and all its results/purchases deleted');
 });
 
 router.get('/special/lottery/:id/result', (req, res) => {
@@ -1494,28 +1494,28 @@ router.post('/special/lottery/:id/result', async (req, res) => {
   if (published) await db.startNewSpecialRound(lottery.id);
 
   logAction(req, 'Special result saved', `${lottery.name} — ${date}: ${resultText.trim()}${scheduledFor ? ` (scheduled for ${scheduledFor})` : ''}`);
-  redirectWithFlash(res, `/admin/special/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
+  redirectWithFlash(res, `/billionaire/special/lottery/${lottery.id}/result`, scheduledFor ? 'Result saved — will go live automatically at draw time' : 'Result saved');
 });
 
 router.post('/special/lottery/:id/result/:resultId/delete', (req, res) => {
   const result = db.get('specialResults').find({ id: req.params.resultId }).value();
   db.get('specialResults').find({ id: req.params.resultId }).assign({ deletedAt: new Date().toISOString() }).write();
   logAction(req, 'Special result deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Result deleted (restore it below if that was a mistake)');
+  redirectWithFlash(res, `/billionaire/special/lottery/${req.params.id}/result`, 'Result deleted (restore it below if that was a mistake)');
 });
 
 router.post('/special/lottery/:id/result/:resultId/restore', (req, res) => {
   const result = db.get('specialResults').find({ id: req.params.resultId }).value();
   db.get('specialResults').find({ id: req.params.resultId }).assign({ deletedAt: null }).write();
   logAction(req, 'Special result restored', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Result restored');
+  redirectWithFlash(res, `/billionaire/special/lottery/${req.params.id}/result`, 'Result restored');
 });
 
 router.post('/special/lottery/:id/result/:resultId/purge', (req, res) => {
   const result = db.get('specialResults').find({ id: req.params.resultId }).value();
   db.get('specialResults').remove({ id: req.params.resultId }).write();
   logAction(req, 'Special result permanently deleted', result ? `${result.date}: ${result.resultText}` : req.params.resultId);
-  redirectWithFlash(res, `/admin/special/lottery/${req.params.id}/result`, 'Permanently deleted');
+  redirectWithFlash(res, `/billionaire/special/lottery/${req.params.id}/result`, 'Permanently deleted');
 });
 
 // Ticket purchases for a special lottery: Quick Ticket Entry (3-digit
@@ -1574,7 +1574,7 @@ router.get('/special/lottery/:id/purchases/export.csv', (req, res) => {
 
 router.post('/special/quick-purchase', (req, res) => {
   const lottery = db.get('specialLotteries').find({ id: req.body.lotteryId }).value();
-  const backPath = lottery ? `/admin/special/lottery/${encodeURIComponent(lottery.id)}/purchases` : '/admin/special';
+  const backPath = lottery ? `/billionaire/special/lottery/${encodeURIComponent(lottery.id)}/purchases` : '/billionaire/special';
 
   if (!lottery) {
     return res.redirect(backPath + '?flash=' + encodeURIComponent('Could not find that special lottery — check the name and try again.'));
@@ -1645,7 +1645,7 @@ router.post('/agent-page', (req, res) => {
   db.set('settings.agentFeature3Title', (req.body.f3title || '').trim()).write();
   db.set('settings.agentFeature3Desc', (req.body.f3desc || '').trim()).write();
   logAction(req, 'Agent page updated', title);
-  redirectWithFlash(res, '/admin/agent-page', 'Agent page saved');
+  redirectWithFlash(res, '/billionaire/agent-page', 'Agent page saved');
 });
 
 router.get('/agent-applications', (req, res) => {
@@ -1664,7 +1664,7 @@ router.get('/agent-applications', (req, res) => {
 router.post('/agent-applications/:id/delete', (req, res) => {
   db.get('agentApplications').remove({ id: req.params.id }).write();
   logAction(req, 'Agent application deleted', req.params.id);
-  redirectWithFlash(res, '/admin/agent-applications', 'Deleted');
+  redirectWithFlash(res, '/billionaire/agent-applications', 'Deleted');
 });
 
 module.exports = router;

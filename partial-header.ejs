@@ -10,9 +10,11 @@
   <meta property="og:title" content="<%= (typeof title !== 'undefined' && title) ? title : siteName %>" />
   <meta property="og:description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : siteName + ' — latest lottery results, updated daily.' %>" />
   <% if (typeof currentUrl !== 'undefined' && currentUrl) { %><meta property="og:url" content="<%= currentUrl %>" /><% } %>
-  <meta name="twitter:card" content="summary" />
+  <% if (typeof ogImageUrl !== 'undefined' && ogImageUrl) { %><meta property="og:image" content="<%= ogImageUrl %>" /><meta property="og:image:width" content="512" /><meta property="og:image:height" content="512" /><% } %>
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="<%= (typeof title !== 'undefined' && title) ? title : siteName %>" />
   <meta name="twitter:description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : siteName + ' — latest lottery results, updated daily.' %>" />
+  <% if (typeof ogImageUrl !== 'undefined' && ogImageUrl) { %><meta name="twitter:image" content="<%= ogImageUrl %>" /><% } %>
   <% if (!noIndex && currentUrl) { %><link rel="canonical" href="<%= currentUrl %>" /><% } %>
   <meta name="theme-color" content="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '#6B4A32' : '#1a9c6b' %>" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -43,19 +45,19 @@
   <% if (typeof isAdminPage !== 'undefined' && isAdminPage) { %>
   <header class="site-header admin-topbar">
     <div class="container">
-      <a href="/admin" class="logo admin-brand"><span class="admin-brand-mark raised-sm">🏆</span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
+      <a href="/billionaire" class="logo admin-brand"><span class="admin-brand-mark raised-sm">🏆</span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
       <% if (!(typeof hideAdminNav !== 'undefined' && hideAdminNav)) { %>
       <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">
-        <a href="/admin">Dashboard</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/stats">Reports</a>
-        <a href="/admin/hub">Settings</a>
+        <a href="/billionaire">Dashboard</a>
+        <a href="/billionaire/users">Users</a>
+        <a href="/billionaire/stats">Reports</a>
+        <a href="/billionaire/hub">Settings</a>
         <a href="/" target="_blank" rel="noopener">View Site</a>
-        <form method="post" action="/admin/logout" style="display:inline;"><input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>"><button type="submit" class="lang-toggle" style="background:transparent; cursor:pointer;">Log Out</button></form>
+        <form method="post" action="/billionaire/logout" style="display:inline;"><input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>"><button type="submit" class="lang-toggle" style="background:transparent; cursor:pointer;">Log Out</button></form>
       </nav>
       <div class="header-actions">
         <button id="themeToggleBtn" type="button" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
-        <a class="icon-btn" href="/admin/audit-log" aria-label="Recent activity">
+        <a class="icon-btn" href="/billionaire/audit-log" aria-label="Recent activity">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <% if (typeof recentActivity !== 'undefined' && recentActivity && recentActivity.length) { %><span class="badge"><%= recentActivity.length %></span><% } %>
         </a>

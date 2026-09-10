@@ -1,6 +1,6 @@
 <%- include('partial-header', { title: 'Edit Pages' , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin">&larr; Dashboard</a>
+<a class="back-link" href="/billionaire">&larr; Dashboard</a>
 <h1>Edit Pages</h1>
 <p class="subtitle">Change your website name and the text shown on your Disclaimer, Privacy Policy, and About pages — no code changes needed, updates go live as soon as you save.</p>
 
@@ -12,7 +12,7 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/pages"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/pages"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="siteName">Website Name</label>
   <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
 

@@ -1,12 +1,12 @@
 <%- include('partial-header', { title: 'Existing Users' , isAdminPage: true }) %>
 <div class="container">
-  <div class="page-back"><a href="/admin/users">← Back to User Accounts</a></div>
+  <div class="page-back"><a href="/billionaire/users">← Back to User Accounts</a></div>
   <div class="top-actions">
     <div><h1 style="margin:0;">Existing Users</h1><p class="subtitle">View user ticket purchases, account status, and reset passwords when needed.</p></div>
-    <a class="btn secondary" href="/admin">Dashboard</a>
+    <a class="btn secondary" href="/billionaire">Dashboard</a>
   </div>
   <% if (typeof flash !== 'undefined' && flash) { %><div class="flash-msg">✓ <%= flash %></div><% } %>
-  <form class="search-form" method="get" action="/admin/users/existing"><input class="search-box" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Search by name or Personal ID" aria-label="Search users"><button class="btn secondary">Search</button></form>
+  <form class="search-form" method="get" action="/billionaire/users/existing"><input class="search-box" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Search by name or Personal ID" aria-label="Search users"><button class="btn secondary">Search</button></form>
   <% if (!users.length) { %>
     <div class="card"><p class="empty-state">No user accounts created yet.</p></div>
   <% } %>
@@ -18,8 +18,8 @@
           <span>Personal ID: <strong><%= u.userCode %></strong> · <%= u.active ? 'Active' : 'Disabled' %></span>
         </div>
         <div class="actions">
-          <a class="btn secondary" href="/admin/users/<%= u.id %>">View Purchased Numbers</a>
-          <form method="post" action="/admin/users/<%= u.id %>/toggle"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('<%= u.active ? 'Disable' : 'Enable' %> this user account?')"><%= u.active ? 'Disable' : 'Enable' %></button></form>
+          <a class="btn secondary" href="/billionaire/users/<%= u.id %>">View Purchased Numbers</a>
+          <form method="post" action="/billionaire/users/<%= u.id %>/toggle"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('<%= u.active ? 'Disable' : 'Enable' %> this user account?')"><%= u.active ? 'Disable' : 'Enable' %></button></form>
         </div>
       </div>
 
@@ -40,21 +40,21 @@
         <p class="empty-state">This user has not entered any ticket purchases yet.</p>
       <% } %>
 
-      <% if (u.recoveryCodeNotice) { %><div class="flash-msg">Recovery code: <strong><%= u.recoveryCodeNotice %></strong></div><% } %><form class="inline-reset-form" method="post" action="/admin/users/<%= u.id %>/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <% if (u.recoveryCodeNotice) { %><div class="flash-msg">Recovery code: <strong><%= u.recoveryCodeNotice %></strong></div><% } %><form class="inline-reset-form" method="post" action="/billionaire/users/<%= u.id %>/password"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <label>Set a new password for this user</label>
         <div class="reset-row"><input type="password" name="password" minlength="8" placeholder="New password" required /><button class="btn secondary" type="submit" onclick="return confirm('Reset this user password?')">Reset Password</button></div>
-      </form><form method="post" action="/admin/users/<%= u.id %>/recovery-code"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('Generate a new recovery code? The old code will stop working.')">Generate Recovery Code</button></form>
+      </form><form method="post" action="/billionaire/users/<%= u.id %>/recovery-code"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit" onclick="return confirm('Generate a new recovery code? The old code will stop working.')">Generate Recovery Code</button></form>
     </div>
   <% }) %>
 </div>
 <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
   <div class="pagination-row" style="display:flex; justify-content:center; align-items:center; gap:14px; margin:20px 0;">
     <% if (page > 1) { %>
-      <a class="btn secondary" href="/admin/users/existing?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">← Prev</a>
+      <a class="btn secondary" href="/billionaire/users/existing?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">← Prev</a>
     <% } %>
     <span class="subtitle" style="margin:0;">Page <%= page %> of <%= totalPages %> (<%= totalUsers %> users)</span>
     <% if (page < totalPages) { %>
-      <a class="btn secondary" href="/admin/users/existing?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">Next →</a>
+      <a class="btn secondary" href="/billionaire/users/existing?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">Next →</a>
     <% } %>
   </div>
 <% } %>

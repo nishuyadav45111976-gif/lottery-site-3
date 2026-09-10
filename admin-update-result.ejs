@@ -1,6 +1,6 @@
 <%- include('partial-header', { title: 'Update Result - ' + lottery.name , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin">&larr; Dashboard</a>
+<a class="back-link" href="/billionaire">&larr; Dashboard</a>
 <h1><%= lottery.name %></h1>
 <p class="subtitle">Add today's result, or update any past date (posting the same date again overwrites it).</p>
 
@@ -12,7 +12,7 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/lottery/<%= lottery.id %>/result"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/lottery/<%= lottery.id %>/result"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="date">Result date</label><p class="subtitle">Use today or an earlier date. Future result dates are not allowed.</p>
   <input type="date" id="date" name="date" required />
 
@@ -34,7 +34,7 @@
 </form>
 
 <h2 style="margin-top:32px;">Result History</h2>
-<a class="btn secondary" style="margin-bottom:12px;" href="/admin/lottery/<%= lottery.id %>/results/export.csv">Export Results as CSV</a>
+<a class="btn secondary" style="margin-bottom:12px;" href="/billionaire/lottery/<%= lottery.id %>/results/export.csv">Export Results as CSV</a>
 <% if (results.length === 0) { %>
   <div class="empty-state">No results posted yet.</div>
 <% } else { %>
@@ -54,7 +54,7 @@
             <% } %>
           </td>
           <td>
-            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/delete" onsubmit="return confirm('Delete this result? You can undo it from the trash below.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <form method="POST" action="/billionaire/lottery/<%= lottery.id %>/result/<%= r.id %>/delete" onsubmit="return confirm('Delete this result? You can undo it from the trash below.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="btn danger">Delete</button>
             </form>
           </td>
@@ -75,10 +75,10 @@
           <td><%= r.date %></td>
           <td class="result-cell"><%= r.resultText %></td>
           <td style="display:flex; gap:6px;">
-            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/restore"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <form method="POST" action="/billionaire/lottery/<%= lottery.id %>/result/<%= r.id %>/restore"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="btn secondary">Restore</button>
             </form>
-            <form method="POST" action="/admin/lottery/<%= lottery.id %>/result/<%= r.id %>/purge" onsubmit="return confirm('Permanently delete this result? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <form method="POST" action="/billionaire/lottery/<%= lottery.id %>/result/<%= r.id %>/purge" onsubmit="return confirm('Permanently delete this result? This cannot be undone.');"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="btn danger">Delete Forever</button>
             </form>
           </td>

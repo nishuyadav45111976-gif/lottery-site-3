@@ -1,6 +1,6 @@
 <%- include('partial-header', { title: 'Agent Page' , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin">&larr; Dashboard</a>
+<a class="back-link" href="/billionaire">&larr; Dashboard</a>
 <h1>🤝 Agent Page</h1>
 <p class="subtitle">Everything here is fully yours to edit — nothing is hard-coded, including any mention of money or commissions. Turn the page on once you're happy with the wording.</p>
 
@@ -14,7 +14,7 @@
 <div class="card" style="margin-bottom:16px;">
   <h2>Show the button on the site?</h2>
   <p class="subtitle">When off, the "Become an Agent" button is hidden everywhere and the page itself returns a normal 404.</p>
-  <form method="POST" action="/admin/agent-page" id="agentToggleForm">
+  <form method="POST" action="/billionaire/agent-page" id="agentToggleForm">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <input type="hidden" name="title" value="<%= title %>">
     <input type="hidden" name="subtitle" value="<%= subtitle %>">
@@ -28,7 +28,7 @@
   </form>
 </div>
 
-<form class="form-box" method="POST" action="/admin/agent-page" style="max-width:none;">
+<form class="form-box" method="POST" action="/billionaire/agent-page" style="max-width:none;">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <input type="hidden" name="enabled" value="<%= enabled ? 'on' : 'off' %>">
 
@@ -67,7 +67,7 @@
   <button type="submit" style="margin-top:14px;">Save Agent Page</button>
 </form>
 
-<a class="btn secondary" style="margin-top:20px;" href="/admin/agent-applications">View Submitted Applications</a>
+<a class="btn secondary" style="margin-top:20px;" href="/billionaire/agent-applications">View Submitted Applications</a>
 <% if (enabled) { %>
   <a class="btn secondary" style="margin-top:20px; margin-left:8px;" href="/agent" target="_blank" rel="noopener">Preview Live Page ↗</a>
 <% } %>

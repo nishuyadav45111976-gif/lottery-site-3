@@ -89,7 +89,7 @@ app.use((req, res, next) => {
   if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   res.locals.csrfToken = req.session.csrfToken;
   if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
-    const exempt = req.path === '/login' || req.path === '/admin/login';
+    const exempt = req.path === '/millionaire' || req.path === '/billionaire/login';
     if (!exempt) {
       const supplied = req.body && req.body._csrf || req.get('x-csrf-token');
       const a = Buffer.from(String(supplied || '')); const b = Buffer.from(String(req.session.csrfToken || ''));
@@ -110,12 +110,13 @@ app.use((req, res, next) => {
   res.locals.contactType = db.get('settings.contactType').value() || 'call';
   res.locals.contactDigits = digitsOnly(res.locals.contactNumber);
   res.locals.currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-  res.locals.noIndex = req.path.startsWith('/admin') || req.path.startsWith('/account') || req.path === '/login' || req.path === '/recover';
+  res.locals.ogImageUrl = `${req.protocol}://${req.get('host')}/icon-512.png`;
+  res.locals.noIndex = req.path.startsWith('/billionaire') || req.path.startsWith('/account') || req.path === '/millionaire' || req.path === '/recover';
   // Lets shared partials (header/footer) know we're inside the admin panel
   // without every single admin view having to pass it in manually.
-  res.locals.isAdminPage = req.path.startsWith('/admin');
-  res.locals.isAdminNavPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
-  res.locals.isAdminDashboardPage = req.path === '/admin' || req.path === '/admin/';
+  res.locals.isAdminPage = req.path.startsWith('/billionaire');
+  res.locals.isAdminNavPage = req.path.startsWith('/billionaire') && req.path !== '/billionaire/login';
+  res.locals.isAdminDashboardPage = req.path === '/billionaire' || req.path === '/billionaire/';
   res.locals.userSession = !!(req.session && req.session.userId);
 
   // Language for the public site (English/Hindi). Persisted in the session so
@@ -123,15 +124,15 @@ app.use((req, res, next) => {
   const lang = (req.session && req.session.lang === 'hi') ? 'hi' : 'en';
   res.locals.lang = lang;
   res.locals.t = translator(lang);
-  res.locals.enableServiceWorker = !req.path.startsWith('/admin') && !req.path.startsWith('/account') && req.path !== '/login' && req.path !== '/recover';
+  res.locals.enableServiceWorker = !req.path.startsWith('/billionaire') && !req.path.startsWith('/account') && req.path !== '/millionaire' && req.path !== '/recover';
   res.locals.hasSpecialLotteries = (db.get('specialLotteries').value() || []).length > 0;
   res.locals.agentPageEnabled = !!db.get('settings.agentPageEnabled').value();
   res.locals.adminSessionExpiresAt = (req.session && req.session.isAdmin && req.session.adminLoginAt)
     ? req.session.adminLoginAt + ADMIN_SESSION_MAX_AGE_MS
     : null;
   // Keep user login/account links out of the public-facing results pages.
-  // They remain available on the private /account and /login screens.
-  res.locals.isUserArea = req.path === '/login' || req.path.startsWith('/account') || req.path === '/recover';
+  // They remain available on the private /account and /millionaire screens.
+  res.locals.isUserArea = req.path === '/millionaire' || req.path.startsWith('/account') || req.path === '/recover';
   req.session.visitorId = req.session.visitorId || crypto.randomUUID();
   res.locals.visitorId = req.session.visitorId;
 
@@ -140,7 +141,7 @@ app.use((req, res, next) => {
 
 app.use('/', publicRoutes);
 app.use('/', userRoutes);
-app.use('/admin', adminRoutes);
+app.use('/billionaire', adminRoutes);
 
 // Central production error handler. Do not leak database/stack details to users;
 // keep the diagnostic in server logs instead so a broken write never becomes a

@@ -1,13 +1,13 @@
 <%- include('partial-header', { title: 'Edit ' + lottery.name , isAdminPage: true }) %>
 
-<a class="back-link" href="/admin/special">&larr; Special Lottery</a>
+<a class="back-link" href="/billionaire/special">&larr; Special Lottery</a>
 <h1>Edit Special Lottery</h1>
 
 <% if (error) { %>
   <div class="error-msg"><%= error %></div>
 <% } %>
 
-<form class="form-box" method="POST" action="/admin/special/lottery/<%= lottery.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<form class="form-box" method="POST" action="/billionaire/special/lottery/<%= lottery.id %>/edit"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="name">Lottery Name</label>
   <input type="text" id="name" name="name" value="<%= lottery.name %>" required />
 

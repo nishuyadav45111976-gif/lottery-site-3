@@ -1,12 +1,12 @@
 <%- include('partial-header', { title: user.name + ' — Purchased Numbers' , isAdminPage: true }) %>
 
-<div class="page-back"><a href="/admin/users">← Back to User Accounts</a></div>
+<div class="page-back"><a href="/billionaire/users">← Back to User Accounts</a></div>
 <div class="top-actions">
   <div>
     <h1 style="margin:0;"><%= user.name %></h1>
     <p class="subtitle">Personal ID: <strong><%= user.userCode %></strong> · <%= user.active ? 'Active' : 'Disabled' %></p>
   </div>
-  <a class="btn secondary" href="/admin">Admin Dashboard</a>
+  <a class="btn secondary" href="/billionaire">Admin Dashboard</a>
 </div>
 
 <div class="card">
