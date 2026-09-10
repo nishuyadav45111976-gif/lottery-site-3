@@ -13,7 +13,7 @@
 //     to the closest lottery name automatically.
 //
 // Each number becomes its own internal ticket record (1 ticket, no buyer
-// name) via POST /admin/quick-purchase.
+// name) via POST /billionaire/quick-purchase.
 (function () {
   var box = document.getElementById('quickAdminEntry');
   if (!box) return;

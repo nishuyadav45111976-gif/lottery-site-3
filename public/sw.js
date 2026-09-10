@@ -24,7 +24,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   // Only public pages/assets may be cached. Never cache authenticated pages.
-  if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/account') || url.pathname === '/login' || url.pathname === '/recover' || url.pathname.startsWith('/notifications') || url.pathname.startsWith('/lang/')) return;
+  if (url.pathname.startsWith('/billionaire') || url.pathname.startsWith('/account') || url.pathname === '/millionaire' || url.pathname === '/recover' || url.pathname.startsWith('/notifications') || url.pathname.startsWith('/lang/')) return;
 
   event.respondWith(
     fetch(event.request)
