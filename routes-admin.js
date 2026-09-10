@@ -46,11 +46,11 @@ function normalizeDrawTime(drawTime) {
   return `${h}:${m}`;
 }
 
-router.get('/millionaire', (req, res) => {
+router.get('/login', (req, res) => {
   res.render('admin-login', { error: null, flash: req.query.flash || null, otpRequired: !!db.get('settings.adminTotpSecret').value() });
 });
 
-router.post('/millionaire', (req, res) => {
+router.post('/login', (req, res) => {
   const { password, otp } = req.body;
   const ip = req.ip;
   const state = getAttemptState(ip);
