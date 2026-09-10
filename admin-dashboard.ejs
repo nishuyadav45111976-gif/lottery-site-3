@@ -95,8 +95,9 @@ function sparklinePoints(series, w, h) {
       <% var _starMode = (typeof starMode !== 'undefined') ? starMode : 'manual'; %>
       <% var _nextStarMode = _starMode === 'manual' ? 'auto' : (_starMode === 'auto' ? 'multi' : 'manual'); %>
       <input type="hidden" name="mode" value="<%= _nextStarMode %>">
-      <button type="submit" class="quick"><div class="quick-icon">⭐</div><span>Featured: <%= _starMode === 'auto' ? 'Auto' : (_starMode === 'multi' ? 'Multi' : 'Manual') %></span></button>
+      <button type="submit" class="quick"><div class="quick-icon">⭐</div><span><%= _starMode === 'multi' ? 'Star Lottery' : ('Featured: ' + (_starMode === 'auto' ? 'Auto' : 'Manual')) %></span></button>
     </form>
+
     <form method="POST" action="/admin/auto-fill-missed-results" style="display:contents;">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <input type="hidden" name="enabled" value="<%= (typeof autoFillMissedResults !== 'undefined' && autoFillMissedResults) ? 'off' : 'on' %>">
@@ -194,6 +195,8 @@ function sparklinePoints(series, w, h) {
         <a class="sheet-item" href="/admin/lottery/<%= lottery.id %>/edit"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21H3v-4Z"/></svg></span><span class="sheet-label">Edit Lottery</span></a>
         <% if (typeof starMode !== 'undefined' && starMode === 'auto') { %>
         <div class="sheet-item" style="box-shadow:none; opacity:0.6;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label">Featured is Automatic<% if (lottery.starred) { %> (currently on)<% } %></span></div>
+        <% } else if (typeof starMode !== 'undefined' && starMode === 'multi') { %>
+        <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label"><%= lottery.starred ? 'Remove Star' : 'Star This Lottery' %></span></button></form>
         <% } else { %>
         <form class="sheet-item-form" method="POST" action="/admin/lottery/<%= lottery.id %>/star"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="sheet-item" style="box-shadow:none;"><span class="sheet-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></span><span class="sheet-label"><%= lottery.starred ? 'Remove Featured' : 'Feature This Lottery' %></span></button></form>
         <% } %>
