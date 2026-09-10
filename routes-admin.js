@@ -500,6 +500,7 @@ router.post('/lottery/new', (req, res) => {
       slug,
       drawTime: normalizedDrawTime,
       starred: false,
+      starLottery: false,
       createdAt: new Date().toISOString(),
     })
     .write();
@@ -549,33 +550,22 @@ router.post('/auto-fill-missed-results', (req, res) => {
   redirectWithFlash(res, '/admin', enabled ? 'Auto-Fill Missed Results enabled.' : 'Auto-Fill Missed Results turned off.');
 });
 
-// ---------- FEATURED LOTTERY & STAR LOTTERY (formerly one "star" feature) ----------
-// Three modes, chosen on the dashboard:
-//   - Manual: admin picks exactly one FEATURED lottery by hand (unchanged
-//     from before — picking a new one un-features whichever was featured).
-//     Shown on the public site as the big highlighted "Featured" card.
-//   - Automatic: FEATURED follows whichever lottery is closest to its
-//     draw — see db.applyAutoStar, checked every 30s and on page load
-//     (unchanged from before).
-//   - Star Lottery: NEW — its own separate mode (not a variant of
-//     Featured) where the admin can mark as many lotteries as they like
-//     with a ⭐; toggling one on/off never affects any other lottery.
-//     Shown on the public site as a small ⭐ badge + highlighted row in
-//     the results list, same spot as before.
-// Internally this still uses the original `starMode` setting and
-// `starred` field on each lottery — only the labels (and the new Star
-// Lottery mode) are new, so nothing about how existing manual/auto data
-// is stored has changed.
+// ---------- FEATURED LOTTERY (Manual/Automatic — original "star" feature) ----------
+// Manual: admin picks exactly one Featured lottery by hand — picking a new
+// one un-features whichever was Featured. Shown on the public site as the
+// big highlighted "Featured" card.
+// Automatic: Featured follows whichever lottery is closest to its draw —
+// see db.applyAutoStar, checked every 30s and on page load.
+// This is fully independent from Star Lottery below — they use separate
+// fields (`starred` vs `starLottery`) and separate controls.
 router.post('/star-mode', (req, res) => {
-  const mode = req.body.mode === 'auto' ? 'auto' : (req.body.mode === 'multi' ? 'multi' : 'manual');
+  const mode = req.body.mode === 'auto' ? 'auto' : 'manual';
   db.set('settings.starMode', mode).write();
-  logAction(req, 'Star mode changed', mode === 'auto' ? 'Automatic (Featured)' : (mode === 'multi' ? 'Star Lottery' : 'Manual (Featured)'));
+  logAction(req, 'Featured mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
   if (mode === 'auto') {
     db.applyAutoStar().catch(() => {}).finally(() => {
       redirectWithFlash(res, '/admin', 'Automatic Featured mode enabled.');
     });
-  } else if (mode === 'multi') {
-    redirectWithFlash(res, '/admin', 'Star Lottery mode enabled — star as many lotteries as you like.');
   } else {
     redirectWithFlash(res, '/admin', 'Switched back to manual Featured selection.');
   }
@@ -585,22 +575,16 @@ router.post('/lottery/:id/star', (req, res) => {
   const lottery = db.get('lotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Lottery not found');
 
-  const mode = db.get('settings.starMode').value();
-  if (mode === 'auto') {
-    return redirectWithFlash(res, '/admin', 'Switch to Manual or Star Lottery mode first to pick a lottery by hand.');
+  if (db.get('settings.starMode').value() === 'auto') {
+    return redirectWithFlash(res, '/admin', 'Switch to Manual Featured mode first to pick a lottery by hand.');
   }
 
   if (lottery.starred) {
-    // Already on — clicking again removes it. Same in every mode.
+    // Already Featured — clicking again removes it
     db.get('lotteries').find({ id: lottery.id }).assign({ starred: false }).write();
-    logAction(req, mode === 'multi' ? 'Unstarred lottery' : 'Unfeatured lottery', lottery.name);
-  } else if (mode === 'multi') {
-    // Star Lottery mode: star this one WITHOUT touching any other lottery.
-    db.get('lotteries').find({ id: lottery.id }).assign({ starred: true }).write();
-    logAction(req, 'Starred lottery', lottery.name);
+    logAction(req, 'Unfeatured lottery', lottery.name);
   } else {
-    // Manual mode (unchanged): un-feature every other lottery first, then
-    // feature this one, so exactly one stays Featured.
+    // Un-feature every other lottery first, then feature this one
     db.get('lotteries').value().forEach((l) => {
       db.get('lotteries').find({ id: l.id }).assign({ starred: false }).write();
     });
@@ -610,6 +594,26 @@ router.post('/lottery/:id/star', (req, res) => {
 
   res.redirect('/admin');
 });
+
+// ---------- STAR LOTTERY (separate from Featured — many at once) ----------
+// Its own independent per-lottery toggle, always available (no mode to
+// switch, no dashboard-level setting) — lives only in each lottery's own
+// menu. Uses its own `starLottery` field, completely separate from the
+// Featured lottery's `starred` field above, so the two never interfere:
+// a lottery can be Featured, Star-Lottery-marked, both, or neither.
+// Shown on the public site as a small ⭐ badge + highlighted row in the
+// results list.
+router.post('/lottery/:id/star-lottery', (req, res) => {
+  const lottery = db.get('lotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Lottery not found');
+
+  const next = !lottery.starLottery;
+  db.get('lotteries').find({ id: lottery.id }).assign({ starLottery: next }).write();
+  logAction(req, next ? 'Starred lottery' : 'Unstarred lottery', lottery.name);
+
+  res.redirect('/admin');
+});
+
 
 
 // ---------- MARK / UNMARK AS ONE OF THE 4 HOMEPAGE "MAIN" LOTTERIES ----------
@@ -1333,15 +1337,13 @@ router.get('/special', async (req, res) => {
 });
 
 router.post('/special/star-mode', (req, res) => {
-  const mode = req.body.mode === 'auto' ? 'auto' : (req.body.mode === 'multi' ? 'multi' : 'manual');
+  const mode = req.body.mode === 'auto' ? 'auto' : 'manual';
   db.set('settings.specialStarMode', mode).write();
-  logAction(req, 'Special star mode changed', mode === 'auto' ? 'Automatic (Featured)' : (mode === 'multi' ? 'Star Lottery' : 'Manual (Featured)'));
+  logAction(req, 'Special Featured mode changed', mode === 'auto' ? 'Automatic' : 'Manual');
   if (mode === 'auto') {
     db.applyAutoSpecialStar().catch(() => {}).finally(() => {
       redirectWithFlash(res, '/admin/special', 'Automatic Featured mode enabled.');
     });
-  } else if (mode === 'multi') {
-    redirectWithFlash(res, '/admin/special', 'Star Lottery mode enabled — star as many special lotteries as you like.');
   } else {
     redirectWithFlash(res, '/admin/special', 'Switched back to manual Featured selection.');
   }
@@ -1350,16 +1352,12 @@ router.post('/special/star-mode', (req, res) => {
 router.post('/special/lottery/:id/star', (req, res) => {
   const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
   if (!lottery) return res.status(404).send('Special lottery not found');
-  const mode = db.get('settings.specialStarMode').value();
-  if (mode === 'auto') {
-    return redirectWithFlash(res, '/admin/special', 'Switch to Manual or Star Lottery mode first to pick a lottery by hand.');
+  if (db.get('settings.specialStarMode').value() === 'auto') {
+    return redirectWithFlash(res, '/admin/special', 'Switch to Manual Featured mode first to pick a lottery by hand.');
   }
   if (lottery.starred) {
     db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: false }).write();
-    logAction(req, mode === 'multi' ? 'Unstarred special lottery' : 'Unfeatured special lottery', lottery.name);
-  } else if (mode === 'multi') {
-    db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: true }).write();
-    logAction(req, 'Starred special lottery', lottery.name);
+    logAction(req, 'Unfeatured special lottery', lottery.name);
   } else {
     (db.get('specialLotteries').value() || []).forEach((l) => {
       db.get('specialLotteries').find({ id: l.id }).assign({ starred: false }).write();
@@ -1367,6 +1365,20 @@ router.post('/special/lottery/:id/star', (req, res) => {
     db.get('specialLotteries').find({ id: lottery.id }).assign({ starred: true }).write();
     logAction(req, 'Featured special lottery', lottery.name);
   }
+  redirectWithFlash(res, '/admin/special', 'Updated');
+});
+
+// Star Lottery for special lotteries — same independent, always-available
+// per-lottery toggle as the normal-lottery version above, using its own
+// `starLottery` field (separate from `starred`/Featured).
+router.post('/special/lottery/:id/star-lottery', (req, res) => {
+  const lottery = db.get('specialLotteries').find({ id: req.params.id }).value();
+  if (!lottery) return res.status(404).send('Special lottery not found');
+
+  const next = !lottery.starLottery;
+  db.get('specialLotteries').find({ id: lottery.id }).assign({ starLottery: next }).write();
+  logAction(req, next ? 'Starred special lottery' : 'Unstarred special lottery', lottery.name);
+
   redirectWithFlash(res, '/admin/special', 'Updated');
 });
 
@@ -1385,7 +1397,7 @@ router.post('/special/lottery/new', (req, res) => {
   if (existing) return res.render('admin-special-add-lottery', { error: 'A special lottery with a very similar name already exists.' });
 
   db.get('specialLotteries').push({
-    id: makeId(), name: name.trim(), slug, drawTime: normalizedDrawTime, starred: false, createdAt: new Date().toISOString(),
+    id: makeId(), name: name.trim(), slug, drawTime: normalizedDrawTime, starred: false, starLottery: false, createdAt: new Date().toISOString(),
   }).write();
 
   logAction(req, 'Special lottery added', name.trim());

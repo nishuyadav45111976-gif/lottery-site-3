@@ -11,7 +11,7 @@
     <% specialLotteries.forEach(function(lottery) { %>
       <a class="lottery-card special-card" href="/special/<%= lottery.slug %>">
         <div><span class="special-chip"><%= lottery.isDrawDayToday ? 'Draws today' : 'Special' %></span></div>
-        <div class="name"><%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %></div>
+        <div class="name"><%= lottery.starLottery ? '⭐ ' : '' %><%= lottery.name %></div>
         <% if (lottery.latestResult) { %>
           <div class="result"><%= lottery.latestResult.resultText %></div>
           <div class="date">Latest · <%= lottery.latestResult.date %></div>

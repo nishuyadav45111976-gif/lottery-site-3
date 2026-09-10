@@ -57,10 +57,10 @@
     </thead>
     <tbody>
       <% lotteries.forEach(function(lottery) { %>
-        <tr class="<%= lottery.starred ? 'highlight-row' : '' %>" data-name="<%= lottery.name.toLowerCase() %>">
+        <tr class="<%= lottery.starLottery ? 'highlight-row' : '' %>" data-name="<%= lottery.name.toLowerCase() %>">
           <td>
             <a class="lottery-link" href="/lottery/<%= lottery.slug %>">
-              <%= lottery.starred ? '⭐ ' : '' %><%= lottery.name %>
+              <%= lottery.starLottery ? '⭐ ' : '' %><%= lottery.name %>
             </a>
           </td>
           <td class="result-cell">
