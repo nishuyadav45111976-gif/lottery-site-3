@@ -23,6 +23,22 @@ function lotteryMeta(lottery, latestResult, siteName) {
   return { title, metaDescription };
 }
 
+// Parses the FAQ page's raw text into question/answer pairs for schema.org
+// FAQPage structured data. Follows the exact format the admin UI already
+// instructs ("Write each question on its own line, followed by the answer
+// on the next line, with a blank line between each Q&A") — so this reads
+// live from settings.faqText and needs no separate data entry: whenever an
+// admin edits the FAQ page, the structured data updates with it automatically.
+function parseFaqPairs(faqText) {
+  if (!faqText || !faqText.trim()) return [];
+  return faqText
+    .trim()
+    .split(/\n\s*\n/)
+    .map((block) => block.split('\n').map((line) => line.trim()).filter(Boolean))
+    .filter((lines) => lines.length >= 2)
+    .map((lines) => ({ question: lines[0], answer: lines.slice(1).join(' ') }));
+}
+
 function parseDrawMinutes(drawTime) {
   if (!drawTime) return null;
   const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
@@ -408,10 +424,12 @@ router.get('/about', async (req, res) => {
 
 router.get('/faq', async (req, res) => {
   await trackVisit(req);
+  const faqText = db.get('settings.faqText').value() || '';
   res.render('legal-page', {
     title: 'Frequently Asked Questions',
     metaDescription: `Frequently asked questions about ${res.locals.siteName}.`,
-    content: db.get('settings.faqText').value() || '',
+    content: faqText,
+    faqPairs: parseFaqPairs(faqText),
   });
 });
 

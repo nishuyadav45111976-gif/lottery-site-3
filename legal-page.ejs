@@ -1,5 +1,15 @@
 <%- include('partial-header', { title: title, metaDescription: metaDescription }) %>
 
+<% if (typeof faqPairs !== 'undefined' && faqPairs && faqPairs.length) { %>
+<script type="application/ld+json"><%- JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqPairs.map(function (p) {
+    return { "@type": "Question", "name": p.question, "acceptedAnswer": { "@type": "Answer", "text": p.answer } };
+  }),
+}) %></script>
+<% } %>
+
 <a class="back-link" href="/">&larr; Back to results</a>
 <h1><%= title %></h1>
 

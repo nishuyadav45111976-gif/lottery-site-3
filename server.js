@@ -28,6 +28,7 @@ if (process.env.LOTTERY_TIMEZONE !== "Asia/Kolkata") {
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
+const compression = require('compression');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const PgSession = require('connect-pg-simple')(session);
@@ -57,6 +58,11 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
+
+// Compress every response (HTML, JSON, CSS, JS) with gzip/brotli — smaller
+// payloads mean faster loads, which matters for Core Web Vitals and for
+// visitors on slower mobile connections.
+app.use(compression());
 
 // Production must use real secrets and a persistent database. Never fall back
 // to example/default credentials or a fixed session secret.
@@ -110,6 +116,7 @@ app.use((req, res, next) => {
   res.locals.contactType = db.get('settings.contactType').value() || 'call';
   res.locals.contactDigits = digitsOnly(res.locals.contactNumber);
   res.locals.currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  res.locals.siteOrigin = `${req.protocol}://${req.get('host')}`;
   res.locals.ogImageUrl = `${req.protocol}://${req.get('host')}/icon-512.png`;
   res.locals.noIndex = req.path.startsWith('/billionaire') || req.path.startsWith('/account') || req.path === '/millionaire' || req.path === '/recover';
   // Lets shared partials (header/footer) know we're inside the admin panel

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= typeof lang !== 'undefined' && lang ? lang : 'en' %>">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,6 +20,15 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="<%= ((typeof isAdminPage !== 'undefined' && isAdminPage) || (typeof isUserPanelPage !== 'undefined' && isUserPanelPage)) ? '/icon-192.png' : '/favicon.svg' %>" />
   <link rel="manifest" href="/manifest.json" />
+  <% if (!noIndex && typeof siteOrigin !== 'undefined' && siteOrigin) { %>
+  <script type="application/ld+json"><%- JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "WebSite", "name": siteName, "url": siteOrigin },
+      { "@type": "Organization", "name": siteName, "url": siteOrigin, "logo": (typeof ogImageUrl !== 'undefined' ? ogImageUrl : undefined) }
+    ]
+  }) %></script>
+  <% } %>
   <% if (typeof isUserPanelPage !== 'undefined' && isUserPanelPage) { %>
   <!-- iOS Safari ignores the web manifest's display mode, so these tags are
        what actually makes "Add to Home Screen" open full-screen (no browser

@@ -1,4 +1,4 @@
-<%- include('partial-header', { title: lottery.name + ' — Most Frequent Numbers', metaDescription: 'Historical number frequency for ' + lottery.name + '.' }) %>
+<%- include('partial-header', { title: title, metaDescription: metaDescription }) %>
 
 <a class="back-link" href="/lottery/<%= lottery.slug %>">&larr; Back to <%= lottery.name %></a>
 <h1><%= lottery.name %> — Most Frequent Numbers</h1>

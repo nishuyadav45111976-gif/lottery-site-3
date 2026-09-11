@@ -1,4 +1,16 @@
-<%- include('partial-header', { title: lottery.name + ' Results (Special)' }) %>
+<%- include('partial-header', { title: title, metaDescription: metaDescription }) %>
+
+<% if (typeof siteOrigin !== 'undefined' && siteOrigin) { %>
+<script type="application/ld+json"><%- JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": siteOrigin + "/" },
+    { "@type": "ListItem", "position": 2, "name": "Special Lotteries", "item": siteOrigin + "/special" },
+    { "@type": "ListItem", "position": 3, "name": lottery.name, "item": siteOrigin + "/special/" + lottery.slug },
+  ],
+}) %></script>
+<% } %>
 
 <a class="back-link" href="/">&larr; All Results</a>
 <h1><%= lottery.name %> <span class="special-chip" style="vertical-align:middle;">Special</span></h1>
