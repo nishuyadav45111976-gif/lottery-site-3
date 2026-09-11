@@ -10,6 +10,19 @@ function activeResults() {
   return (db.get('results').value() || []).filter((r) => !r.deletedAt && r.published !== false);
 }
 
+// Generates a unique <title>/description for a lottery's page from live
+// data — the lottery's name and (if there is one) its latest result.
+// Because this runs fresh on every request rather than being written by
+// hand per lottery, any lottery added later automatically gets its own
+// distinct, search-friendly title and description with no extra setup.
+function lotteryMeta(lottery, latestResult, siteName) {
+  const title = `${lottery.name} Lottery Result Today | ${siteName}`;
+  const metaDescription = latestResult
+    ? `${lottery.name} lottery result for ${latestResult.date}: ${latestResult.resultText}. Check today's number and the full ${lottery.name} result history.`
+    : `Live ${lottery.name} lottery results, updated daily. Check today's number and the full result history.`;
+  return { title, metaDescription };
+}
+
 function parseDrawMinutes(drawTime) {
   if (!drawTime) return null;
   const raw = String(drawTime).trim().toUpperCase().replace(/\s+/g, ' ');
@@ -272,7 +285,8 @@ router.get('/lottery/:slug', async (req, res) => {
     .reverse()
     .value();
 
-  res.render('lottery', { lottery, results });
+  const meta = lotteryMeta(lottery, results[0] || null, res.locals.siteName);
+  res.render('lottery', { lottery, results, title: meta.title, metaDescription: meta.metaDescription });
 });
 
 // Same as /lottery/:slug, for Special Lotteries (000-999 games).
@@ -304,7 +318,11 @@ router.get('/special', async (req, res) => {
     };
   });
 
-  res.render('special-index', { specialLotteries });
+  res.render('special-index', {
+    specialLotteries,
+    title: `Special Lotteries | ${res.locals.siteName}`,
+    metaDescription: `Results for every special lottery on ${res.locals.siteName}, updated on each draw day.`,
+  });
 });
 
 router.get('/special/:slug', async (req, res) => {
@@ -322,7 +340,8 @@ router.get('/special/:slug', async (req, res) => {
     .reverse()
     .value();
 
-  res.render('special-lottery', { lottery, results });
+  const meta = lotteryMeta(lottery, results[0] || null, res.locals.siteName);
+  res.render('special-lottery', { lottery, results, title: meta.title, metaDescription: meta.metaDescription });
 });
 
 // Combined history grid: every lottery as a column, every date as a row.
@@ -418,7 +437,12 @@ router.get('/lottery/:slug/frequency', async (req, res) => {
     .map(([number, count]) => ({ number, count }))
     .sort((a, b) => b.count - a.count || a.number.localeCompare(b.number));
 
-  res.render('lottery-frequency', { lottery, frequency });
+  res.render('lottery-frequency', {
+    lottery,
+    frequency,
+    title: `${lottery.name} Lottery Number Frequency | ${res.locals.siteName}`,
+    metaDescription: `See which numbers have come up most often in ${lottery.name} lottery results, based on the full result history.`,
+  });
 });
 
 // robots.txt — allow everything except the admin panel, point crawlers at the sitemap
@@ -432,20 +456,37 @@ router.get('/robots.txt', (req, res) => {
 router.get('/sitemap.xml', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;
   const lotteries = db.get('lotteries').value() || [];
-  const urls = [
-    `${base}/`,
-    `${base}/history`,
-    `${base}/disclaimer`,
-    `${base}/privacy`,
-    `${base}/about`,
-    `${base}/faq`,
-    ...lotteries.map((l) => `${base}/lottery/${l.slug}`),
-    ...lotteries.map((l) => `${base}/lottery/${l.slug}/frequency`),
+  const specialLotteries = db.get('specialLotteries').value() || [];
+  const results = activeResults();
+  const specialResultsAll = (db.get('specialResults').value() || []).filter((r) => !r.deletedAt && r.published !== false);
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  // Latest result date for a lottery, used as <lastmod> so search engines
+  // know these pages update daily — falls back to no lastmod at all when a
+  // lottery has no results yet, rather than guessing a date.
+  function latestDateFor(lotteryId, resultsList) {
+    const matches = resultsList.filter((r) => r.lotteryId === lotteryId);
+    if (!matches.length) return null;
+    return matches.reduce((latest, r) => (r.date > latest ? r.date : latest), matches[0].date);
+  }
+
+  const entries = [
+    { loc: `${base}/`, lastmod: todayIso },
+    { loc: `${base}/history`, lastmod: todayIso },
+    { loc: `${base}/disclaimer` },
+    { loc: `${base}/privacy` },
+    { loc: `${base}/about` },
+    { loc: `${base}/faq` },
+    { loc: `${base}/special`, lastmod: todayIso },
+    ...lotteries.map((l) => ({ loc: `${base}/lottery/${l.slug}`, lastmod: latestDateFor(l.id, results) })),
+    ...lotteries.map((l) => ({ loc: `${base}/lottery/${l.slug}/frequency`, lastmod: latestDateFor(l.id, results) })),
+    ...specialLotteries.map((l) => ({ loc: `${base}/special/${l.slug}`, lastmod: latestDateFor(l.id, specialResultsAll) })),
   ];
+
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    urls.map((u) => `  <url><loc>${u}</loc></url>`).join('\n') +
+    entries.map((e) => `  <url><loc>${e.loc}</loc>${e.lastmod ? `<lastmod>${e.lastmod}</lastmod>` : ''}</url>`).join('\n') +
     '\n</urlset>\n';
   res.type('application/xml');
   res.send(xml);
