@@ -35,8 +35,23 @@ function parseFaqPairs(faqText) {
     .trim()
     .split(/\n\s*\n/)
     .map((block) => block.split('\n').map((line) => line.trim()).filter(Boolean))
-    .filter((lines) => lines.length >= 2)
-    .map((lines) => ({ question: lines[0], answer: lines.slice(1).join(' ') }));
+    .map((lines) => {
+      if (lines.length >= 2) {
+        // Two-line format: question on its own line, answer below it.
+        return { question: lines[0], answer: lines.slice(1).join(' ') };
+      }
+      if (lines.length === 1) {
+        // Single-line format: "Question? Answer." combined — split at the
+        // first question mark so this still works without rewriting.
+        const combined = lines[0];
+        const qMarkIndex = combined.indexOf('?');
+        if (qMarkIndex !== -1 && qMarkIndex < combined.length - 1) {
+          return { question: combined.slice(0, qMarkIndex + 1).trim(), answer: combined.slice(qMarkIndex + 1).trim() };
+        }
+      }
+      return null;
+    })
+    .filter(Boolean);
 }
 
 function parseDrawMinutes(drawTime) {
