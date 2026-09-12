@@ -14,6 +14,13 @@
   <% if (typeof notice !== 'undefined' && notice) { %><div class="flash-msg">✓ <%= notice %></div><% } %>
   <% if (typeof error !== 'undefined' && error) { %><div class="error-msg"><%= error %></div><% } %>
 
+  <% if (typeof closest !== 'undefined' && closest) { %>
+  <div class="card" style="padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <span><strong><%= closest.lottery.name %></strong> — <%= closest.locked ? 'Closing soon' : 'Next draw' %> in <%= closest.countdownText %> <span class="subtitle" style="font-size:0.85em;">(<%= closest.lottery.drawTime %>)</span></span>
+    <a class="btn primary" href="/account/numbers/<%= closest.lottery.id %>" style="white-space:nowrap;">Enter Numbers</a>
+  </div>
+  <% } %>
+
   <div class="card" id="quickUserEntry">
     <h2>Quick Ticket Entry</h2>
     <p class="subtitle">Numbers × amount, then the lottery name (the word "into" is optional) — e.g. <code>10,11,12,13×75 Rewari</code></p>

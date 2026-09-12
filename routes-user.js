@@ -93,6 +93,48 @@ function ticketEntryStatus(lottery) {
     message: `Ticket entry is closed for this lottery. Entries stop 15 minutes before the ${lottery.drawTime} result time.`
   };
 }
+// How many minutes from now until a lottery's draw time — wraps forward to
+// tomorrow if the draw already passed today, so a lottery whose draw was 2
+// minutes ago correctly reads as ~24 hours away rather than negative.
+function minutesUntilDraw(drawMinutes, nowMinutes) {
+  let diff = drawMinutes - nowMinutes;
+  if (diff < 0) diff += 1440;
+  return diff;
+}
+
+function formatCountdown(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h} hr ${m} min`;
+  if (h > 0) return `${h} hr`;
+  return `${m} min`;
+}
+
+// Picks whichever single lottery is happening right now or soonest — the
+// "current or closest upcoming" one for the dashboard's compact status
+// widget. Recalculated fresh on every page load, so it automatically moves
+// on to the next lottery the instant the current one's draw time passes —
+// no separate "previous" tracking needed, it just naturally rotates.
+function closestLottery(lotteries) {
+  const tz = process.env.LOTTERY_TIMEZONE || 'Asia/Kolkata';
+  const now = zonedClock(tz);
+  const nowMinutes = now.hour * 60 + now.minute;
+  let best = null;
+  let bestMinutes = Infinity;
+  lotteries.forEach((lottery) => {
+    const drawMinutes = parseDrawMinutes(lottery.drawTime);
+    if (drawMinutes == null) return;
+    const minutesAway = minutesUntilDraw(drawMinutes, nowMinutes);
+    if (minutesAway < bestMinutes) {
+      bestMinutes = minutesAway;
+      best = lottery;
+    }
+  });
+  if (!best) return null;
+  const status = ticketEntryStatus(best);
+  return { lottery: best, minutesAway: bestMinutes, countdownText: formatCountdown(bestMinutes), locked: status.locked };
+}
+
 function ensureUserData() {
   if (!db.get('users').value()) db.set('users', []).write();
   if (!db.get('watchedNumbers').value()) db.set('watchedNumbers', []).write();
@@ -167,10 +209,11 @@ router.get('/account', requireUser, (req, res) => {
   const lotteries = db.get('lotteries').value() || [];
   const watches = db.get('watchedNumbers').filter({ userId: user.id }).value();
   const notifications = db.get('notifications').filter({ userId: user.id }).sortBy('createdAt').reverse().value();
+  const closest = closestLottery(lotteries);
   // One idempotency key per page load for the dashboard's Quick Ticket
   // Entry box, same pattern as the per-lottery numbers page.
   const quickEntryRequestId = crypto.randomUUID();
-  res.render('user-dashboard', { user, lotteries, watches, notifications, notice: req.query.notice || null, error: req.query.error || null, quickEntryRequestId });
+  res.render('user-dashboard', { user, lotteries, watches, notifications, notice: req.query.notice || null, error: req.query.error || null, quickEntryRequestId, closest });
 });
 
 // ---------- QUICK TICKET ENTRY (User Dashboard) ----------

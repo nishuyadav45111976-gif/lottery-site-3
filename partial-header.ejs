@@ -2,6 +2,7 @@
 <html lang="<%= typeof lang !== 'undefined' && lang ? lang : 'en' %>">
 <head>
   <meta charset="UTF-8" />
+  <meta name="color-scheme" content="light" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= (typeof title !== 'undefined' && title && title !== siteName) ? title + ' | ' + siteName : siteName %></title>
   <% if (noIndex) { %><meta name="robots" content="noindex,nofollow,noarchive" /><% } %>
@@ -172,7 +173,7 @@
           <button id="installAppBtn" class="btn secondary" type="button">📲 Install App</button>
         </div>
       <% } %>
-      <% if (typeof agentPageEnabled !== 'undefined' && agentPageEnabled) { %>
+      <% if (typeof agentPageEnabled !== 'undefined' && agentPageEnabled && !(typeof isLoginPage !== 'undefined' && isLoginPage)) { %>
         <a href="/agent" class="btn secondary agent-cta-btn">🤝 Become an Agent</a>
       <% } %>
     </div>

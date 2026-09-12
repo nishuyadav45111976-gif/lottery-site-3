@@ -156,6 +156,7 @@ app.use((req, res, next) => {
   // Keep user login/account links out of the public-facing results pages.
   // They remain available on the private /account and /millionaire screens.
   res.locals.isUserArea = req.path === '/millionaire' || req.path.startsWith('/account') || req.path === '/recover';
+  res.locals.isLoginPage = req.path === '/millionaire';
   req.session.visitorId = req.session.visitorId || crypto.randomUUID();
   res.locals.visitorId = req.session.visitorId;
 
