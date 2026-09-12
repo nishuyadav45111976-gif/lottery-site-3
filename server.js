@@ -53,6 +53,22 @@ app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 app.set('view engine', 'ejs');
 app.set('views', __dirname);
 
+// Domain migration safety net — inactive unless REDIRECT_TO_DOMAIN is set.
+// If this site ever needs to move to a new domain, set REDIRECT_TO_DOMAIN to
+// the new domain (e.g. "www.newdomain.com") and every request to this old
+// domain will get a permanent (301) redirect to the exact same path on the
+// new one. A 301 is what tells Google "this moved for good, transfer the
+// old page's ranking here" — without it, the new domain effectively starts
+// from zero. /health is excluded so uptime monitors checking the old
+// domain during a migration window don't get redirected into a failure.
+if (process.env.REDIRECT_TO_DOMAIN) {
+  const targetDomain = process.env.REDIRECT_TO_DOMAIN;
+  app.use((req, res, next) => {
+    if (req.path === '/health' || req.hostname === targetDomain) return next();
+    res.redirect(301, `https://${targetDomain}${req.originalUrl}`);
+  });
+}
+
 // Production security headers.
 app.use(helmet({
   contentSecurityPolicy: false,

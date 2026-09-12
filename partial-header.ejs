@@ -17,6 +17,7 @@
   <% if (typeof ogImageUrl !== 'undefined' && ogImageUrl) { %><meta name="twitter:image" content="<%= ogImageUrl %>" /><% } %>
   <% if (!noIndex && currentUrl) { %><link rel="canonical" href="<%= currentUrl %>" /><% } %>
   <meta name="theme-color" content="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '#6B4A32' : '#1a9c6b' %>" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="<%= ((typeof isAdminPage !== 'undefined' && isAdminPage) || (typeof isUserPanelPage !== 'undefined' && isUserPanelPage)) ? '/icon-192.png' : '/favicon.svg' %>" />
   <link rel="manifest" href="/manifest.json" />
