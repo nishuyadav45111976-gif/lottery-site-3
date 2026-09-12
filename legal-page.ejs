@@ -13,17 +13,6 @@
 <a class="back-link" href="/">&larr; Back to results</a>
 <h1><%= title %></h1>
 
-<% if (title === 'Frequently Asked Questions') { %>
-  <% if (typeof faqPairs !== 'undefined') { %>
-    <p style="background:#ffe; border:2px solid orange; padding:10px; font-size:0.85rem;">
-      🔧 TEMP DEBUG (will be removed): faqPairs is defined, length = <%= faqPairs.length %>.
-      <% if (faqPairs.length) { %>First question found: "<%= faqPairs[0].question %>"<% } else { %>No pairs were extracted from the FAQ text.<% } %>
-    </p>
-  <% } else { %>
-    <p style="background:#fee; border:2px solid red; padding:10px; font-size:0.85rem;">🔧 TEMP DEBUG: faqPairs was never passed to this page at all.</p>
-  <% } %>
-<% } %>
-
 <% if (content && content.trim()) { %>
   <% content.trim().split(/\n\s*\n/).forEach(function(paragraph) { %>
     <p class="subtitle" style="color:inherit; font-size:1rem; line-height:1.6;"><%= paragraph.trim() %></p>
