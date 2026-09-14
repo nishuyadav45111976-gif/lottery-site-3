@@ -53,6 +53,7 @@
 </head>
 <a class="skip-link" href="#main-content">Skip to content</a>
 <body class="<%= (typeof contactNumber !== 'undefined' && contactNumber) ? 'has-contact-bar' : '' %> <%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? 'admin-theme' : '' %>">
+  <% if (!(typeof isLoginPage !== 'undefined' && isLoginPage)) { %>
   <% if (typeof isAdminPage !== 'undefined' && isAdminPage) { %>
   <header class="site-header admin-topbar">
     <div class="container">
@@ -102,6 +103,7 @@
       <a href="/special" class="special-header-link">🎰 Special Lottery <span>›</span></a>
     <% } %>
   </header>
+  <% } %>
   <% } %>
 
   <% if (typeof isHomePage !== 'undefined' && isHomePage && typeof specialLotteries !== 'undefined' && specialLotteries.length > 0) { %>
@@ -166,7 +168,7 @@
     })();
   </script>
 
-  <% if (!(typeof isAdminPage !== 'undefined' && isAdminPage) && ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof agentPageEnabled !== 'undefined' && agentPageEnabled))) { %>
+  <% if (!(typeof isLoginPage !== 'undefined' && isLoginPage) && !(typeof isAdminPage !== 'undefined' && isAdminPage) && ((typeof enableServiceWorker !== 'undefined' && enableServiceWorker) || (typeof agentPageEnabled !== 'undefined' && agentPageEnabled))) { %>
     <div class="top-buttons-bar">
       <% if (typeof enableServiceWorker !== 'undefined' && enableServiceWorker) { %>
         <div id="installAppBar" class="install-app-bar" style="display:none;">

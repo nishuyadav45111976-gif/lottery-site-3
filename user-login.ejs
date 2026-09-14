@@ -1,16 +1,114 @@
-<%- include('partial-header') %>
-<div class="container">
-  <h1>My Account</h1>
-  <p class="subtitle">Sign in to follow numbers and receive result notifications.</p>
-  <% if (notice) { %><div class="flash success"><%= notice %></div><% } %>
-  <% if (error) { %><div class="flash error"><%= error %></div><% } %>
-  <form class="form-box" method="post" action="/millionaire"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <label for="userCode">Personal ID</label>
-    <input id="userCode" type="text" name="userCode" autocomplete="username" required />
-    <label for="password">Password</label>
-    <input id="password" type="password" name="password" autocomplete="current-password" required />
-    <button class="btn primary" type="submit">Login</button>
-  <p class="subtitle" style="margin-top:10px;"><a href="/recover">Forgot your password?</a></p>
-  </form>
+<%- include('partial-header', { title: 'Log In' }) %>
+
+<style>
+  /* Scoped to this page only, prefixed loginpg- to avoid clashing with any
+     shared site.css class. */
+  #main-content.container { max-width: none; padding: 0; margin: 0; }
+  .loginpg-bg {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,.55) 0, transparent 40%),
+      radial-gradient(circle at 85% 75%, rgba(255,255,255,.35) 0, transparent 45%),
+      linear-gradient(160deg, #dceaf3 0%, #bcd9ea 45%, #8fbdda 100%);
+  }
+  .loginpg-wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 18px; box-sizing: border-box; }
+  .loginpg-brand { font-size: 0.8rem; font-weight: 600; letter-spacing: .3px; color: #2b6ca3; opacity: .85; margin-bottom: 14px; text-align: center; }
+  .loginpg-card {
+    width: 100%; max-width: 420px;
+    background: rgba(255,255,255,.38);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(255,255,255,.55);
+    border-radius: 28px;
+    padding: 30px 26px;
+    box-shadow: 0 12px 40px rgba(28,68,100,.18);
+    box-sizing: border-box;
+  }
+  .loginpg-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+  .loginpg-head h1 { margin: 0; font-size: 2rem; font-weight: 700; color: #16324a; }
+  .loginpg-field { position: relative; margin-bottom: 16px; }
+  .loginpg-field input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(255,255,255,.45);
+    border: 1px solid rgba(255,255,255,.6);
+    border-radius: 999px;
+    padding: 15px 46px;
+    font: inherit; font-size: 0.98rem; color: #16324a;
+    outline: none;
+  }
+  .loginpg-field input::placeholder { color: #6f93ab; }
+  .loginpg-field input:focus { border-color: #2b6ca3; box-shadow: 0 0 0 3px rgba(43,108,163,.15); }
+  .loginpg-field-icon { position: absolute; left: 17px; top: 50%; transform: translateY(-50%); color: #2b6ca3; display: flex; }
+  .loginpg-eye { position: absolute; right: 17px; top: 50%; transform: translateY(-50%); background: none; border: 0; padding: 0; color: #2b6ca3; cursor: pointer; display: flex; }
+  .loginpg-forgot { text-align: right; margin: -6px 0 18px; }
+  .loginpg-forgot a { color: #2b6ca3; font-size: 0.9rem; text-decoration: none; }
+  .loginpg-forgot a:hover { text-decoration: underline; }
+  .loginpg-submit {
+    width: 100%; border: 0; border-radius: 999px; padding: 16px;
+    background: linear-gradient(180deg, #2b2b2b, #101010);
+    color: #fff; font-size: 1.05rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
+  }
+  .loginpg-submit:active { transform: translateY(1px); }
+  .loginpg-back { display: block; text-align: center; margin-top: 18px; color: #2b6ca3; font-size: 0.9rem; text-decoration: none; }
+  .loginpg-back:hover { text-decoration: underline; }
+  .loginpg-flash { border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; margin-bottom: 16px; }
+  .loginpg-flash.success { background: rgba(40,140,90,.15); color: #1f5c3e; }
+  .loginpg-flash.error { background: rgba(190,50,50,.15); color: #7a2222; }
+</style>
+
+<div class="loginpg-bg"></div>
+<div class="loginpg-wrap">
+  <div class="loginpg-brand">🏆 <%= siteName %></div>
+
+  <div class="loginpg-card">
+    <div class="loginpg-head">
+      <h1>Log in</h1>
+    </div>
+
+    <% if (notice) { %><div class="loginpg-flash success"><%= notice %></div><% } %>
+    <% if (error) { %><div class="loginpg-flash error"><%= error %></div><% } %>
+
+    <form method="post" action="/millionaire">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="loginpg-field">
+        <span class="loginpg-field-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        </span>
+        <input id="userCode" type="text" name="userCode" placeholder="Personal ID" autocomplete="username" required />
+      </div>
+
+      <div class="loginpg-field">
+        <span class="loginpg-field-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M10.5 12.5 20 3M17 6l2 2M14 9l2 2"/></svg>
+        </span>
+        <input id="password" type="password" name="password" placeholder="password" autocomplete="current-password" required style="padding-right:46px;" />
+        <button type="button" class="loginpg-eye" id="loginpgEyeBtn" aria-label="Show password">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <div class="loginpg-forgot"><a href="/recover">Forgot password?</a></div>
+
+      <button class="loginpg-submit" type="submit">Log in</button>
+    </form>
+
+    <a class="loginpg-back" href="/">&larr; Back to results</a>
+  </div>
 </div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('loginpgEyeBtn');
+    var input = document.getElementById('password');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      var showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+  })();
+</script>
+
 <%- include('partial-footer') %>
