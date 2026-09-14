@@ -1,53 +1,111 @@
 <%- include('partial-header', { title: pageTitle }) %>
 
+<style>
+  /* Scoped to this page only — every selector below is prefixed agentpg-
+     specifically so it can never collide with the site's shared style.css
+     classes (which already has its own unrelated .card, .feature, etc). */
+  .agentpg-hero h1 { margin:0; color:#4e321f; font-size:2.3rem; line-height:1.15; letter-spacing:-1px; }
+  .agentpg-hero p { margin:10px 0 22px; color:#6c7073; font-size:1.05rem; }
+  .agentpg-card { background:#fffdf9; border:1px solid #ddd7ce; border-radius:16px; box-shadow:0 5px 18px rgba(75,52,30,.07); }
+  .agentpg-features { padding:16px 22px; margin-bottom:22px; }
+  .agentpg-feature { min-height:84px; display:flex; align-items:center; gap:16px; }
+  .agentpg-feature + .agentpg-feature { border-top:1px solid #e3ded6; }
+  .agentpg-icon { width:54px; height:54px; border-radius:50%; flex:0 0 54px; display:grid; place-items:center; font-size:26px; }
+  .agentpg-icon.one { background:#fff0cf; }
+  .agentpg-icon.two { background:#e4efd5; }
+  .agentpg-icon.three { background:#e9e0ee; }
+  .agentpg-feature h3 { margin:0 0 4px; color:#4e321f; font-size:1.08rem; }
+  .agentpg-feature p { margin:0; color:#6d7479; font-size:0.9rem; }
+  .agentpg-arrow { margin-left:auto; color:#735f4c; font-size:1.6rem; font-weight:300; }
+  .agentpg-registration { padding:22px; }
+  .agentpg-section-title { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+  .agentpg-section-icon { width:48px; height:48px; border-radius:50%; background:#efe5d8; display:grid; place-items:center; font-size:23px; flex:0 0 48px; }
+  .agentpg-section-title h2 { margin:0; color:#4e321f; font-size:1.35rem; }
+  .agentpg-form { display:grid; gap:16px; }
+  .agentpg-form label { display:block; color:#41464a; font-size:0.9rem; font-weight:600; margin-bottom:6px; }
+  .agentpg-form label span { font-weight:400; }
+  .agentpg-field { position:relative; }
+  .agentpg-field input, .agentpg-field textarea { box-sizing:border-box; width:100%; border:1px solid #d2d2cf; background:#fffefa; border-radius:11px; padding:13px 14px 13px 44px; font:inherit; font-size:0.95rem; color:#303438; outline:none; }
+  .agentpg-field textarea { min-height:90px; resize:vertical; padding-top:12px; }
+  .agentpg-field input:focus, .agentpg-field textarea:focus { border-color:#9a704b; box-shadow:0 0 0 3px rgba(154,112,75,.11); }
+  .agentpg-field-icon { position:absolute; left:14px; top:38px; font-size:18px; color:#756e68; pointer-events:none; }
+  .agentpg-field.agentpg-textarea .agentpg-field-icon { top:34px; }
+  .agentpg-submit { border:0; background:linear-gradient(135deg,#754a2c,#603b24); color:#fff; font-size:1rem; font-weight:700; border-radius:11px; padding:13px 20px; width:100%; cursor:pointer; box-shadow:0 5px 12px rgba(91,57,34,.17); }
+  @media (min-width:480px) { .agentpg-submit { width:max-content; } }
+</style>
+
 <a class="back-link" href="/">&larr; Back to Results</a>
 
-<h1><%= pageTitle %></h1>
-<% if (pageSubtitle) { %><p class="subtitle"><%= pageSubtitle %></p><% } %>
+<section class="agentpg-hero">
+  <h1><%= pageTitle %></h1>
+  <% if (pageSubtitle) { %><p><%= pageSubtitle %></p><% } %>
+</section>
 
-<div class="agent-features-box">
-  <% features.forEach(function(f) { %>
+<% var anyFeature = features.some(function (f) { return f.title || f.desc; }); %>
+<% if (anyFeature) { %>
+<section class="agentpg-card agentpg-features">
+  <% var iconClasses = ['one', 'two', 'three']; %>
+  <% features.forEach(function (f, i) { %>
     <% if (f.title || f.desc) { %>
-      <div class="agent-feature-row">
-        <div class="agent-feature-icon"><%= f.icon %></div>
-        <div>
-          <div class="agent-feature-title"><%= f.title %></div>
-          <div class="agent-feature-desc"><%= f.desc %></div>
-        </div>
+    <div class="agentpg-feature">
+      <div class="agentpg-icon <%= iconClasses[i] || 'one' %>"><%= f.icon || '⭐' %></div>
+      <div>
+        <h3><%= f.title %></h3>
+        <p><%= f.desc %></p>
       </div>
+      <div class="agentpg-arrow">›</div>
+    </div>
     <% } %>
   <% }); %>
-</div>
+</section>
+<% } %>
 
-<div class="card" style="margin-top:20px;">
-  <h2>📝 Agent Registration</h2>
+<section class="agentpg-card agentpg-registration">
+  <div class="agentpg-section-title">
+    <div class="agentpg-section-icon">📝</div>
+    <h2>Agent Registration</h2>
+  </div>
 
   <% if (submitted) { %>
     <div class="flash-msg">✓ Thanks — your details have been submitted. We'll get in touch soon.</div>
   <% } else { %>
-    <% if (error) { %>
-      <div class="error-msg"><%= error %></div>
-    <% } %>
-    <form class="form-box" method="POST" action="/agent/apply">
+    <% if (error) { %><div class="error-msg"><%= error %></div><% } %>
+    <form class="agentpg-form" method="POST" action="/agent/apply">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <label for="name">Full Name</label>
-      <input type="text" id="name" name="name" value="<%= (formValues && formValues.name) || '' %>" required maxlength="100" />
 
-      <label for="whatsapp">WhatsApp Number</label>
-      <input type="tel" id="whatsapp" name="whatsapp" value="<%= (formValues ? formValues.whatsapp : null) ?? '+91 ' %>" placeholder="e.g. +91 98765 43210" pattern="[0-9+\s\-]{10,20}" title="10-15 digits" required />
+      <div class="agentpg-field">
+        <label for="name">Full Name</label>
+        <span class="agentpg-field-icon">👤</span>
+        <input id="name" name="name" type="text" placeholder="Enter your full name" value="<%= (formValues && formValues.name) || '' %>" required maxlength="100" />
+      </div>
 
-      <label for="telegram">Telegram Username (optional)</label>
-      <input type="text" id="telegram" name="telegram" value="<%= (formValues && formValues.telegram) || '' %>" placeholder="e.g. yourusername" maxlength="40" />
+      <div class="agentpg-field">
+        <label for="whatsapp">WhatsApp Number</label>
+        <span class="agentpg-field-icon">📱</span>
+        <input id="whatsapp" name="whatsapp" type="tel" placeholder="e.g. +91 98765 43210" value="<%= (formValues ? formValues.whatsapp : null) ?? '+91 ' %>" pattern="[0-9+\s\-]{10,20}" title="10-15 digits" required />
+      </div>
 
-      <label for="area">City / Area</label>
-      <input type="text" id="area" name="area" value="<%= (formValues && formValues.area) || '' %>" maxlength="100" />
+      <div class="agentpg-field">
+        <label for="telegram">Telegram Username <span>(optional)</span></label>
+        <span class="agentpg-field-icon">✈️</span>
+        <input id="telegram" name="telegram" type="text" placeholder="e.g. yourusername" value="<%= (formValues && formValues.telegram) || '' %>" maxlength="40" />
+      </div>
 
-      <label for="message">Message (optional)</label>
-      <textarea id="message" name="message" rows="3" maxlength="1000"><%= (formValues && formValues.message) || '' %></textarea>
+      <div class="agentpg-field">
+        <label for="area">City / Area</label>
+        <span class="agentpg-field-icon">📍</span>
+        <input id="area" name="area" type="text" placeholder="Enter your city / area" value="<%= (formValues && formValues.area) || '' %>" maxlength="100" />
+      </div>
 
-      <button type="submit">Submit</button>
+      <div class="agentpg-field agentpg-textarea">
+        <label for="message">Message <span>(optional)</span></label>
+        <span class="agentpg-field-icon">✏️</span>
+        <textarea id="message" name="message" rows="3" placeholder="Write your message here..." maxlength="1000"><%= (formValues && formValues.message) || '' %></textarea>
+      </div>
+
+      <button class="agentpg-submit" type="submit">➤ &nbsp; Submit</button>
     </form>
   <% } %>
-</div>
+</section>
 
 <%- include('partial-footer') %>
