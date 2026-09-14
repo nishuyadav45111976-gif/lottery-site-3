@@ -314,7 +314,8 @@ router.get('/lottery/:slug', async (req, res) => {
     .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
     .sortBy('date')
     .reverse()
-    .value();
+    .value()
+    .map((r) => ({ ...r, dateLabel: shortDateLabel(r.date) }));
 
   const meta = lotteryMeta(lottery, results[0] || null, res.locals.siteName);
   res.render('lottery', { lottery, results, title: meta.title, metaDescription: meta.metaDescription });
@@ -369,7 +370,8 @@ router.get('/special/:slug', async (req, res) => {
     .filter((r) => r.lotteryId === lottery.id && !r.deletedAt && r.published !== false)
     .sortBy('date')
     .reverse()
-    .value();
+    .value()
+    .map((r) => ({ ...r, dateLabel: shortDateLabel(r.date) }));
 
   const meta = lotteryMeta(lottery, results[0] || null, res.locals.siteName);
   res.render('special-lottery', { lottery, results, title: meta.title, metaDescription: meta.metaDescription });
@@ -560,15 +562,31 @@ router.get('/manifest.json', (req, res) => {
 // blocks) comes from settings — fully editable from Admin → Agent Page,
 // with no hard-coded wording about money/commissions baked in, since that
 // framing may not fit every deployment of this site.
+// Placeholder text an admin sees in their OWN settings form as a starting
+// example — these must never leak onto the public page verbatim if the
+// admin hasn't actually customized them yet.
+const AGENT_DEFAULT_DESC = 'Edit this from Admin \u2192 Agent Page.';
+const AGENT_DEFAULT_SUBTITLE = 'Add your own subtitle from Admin \u2192 Agent Page.';
+
 function agentPageContent() {
+  const rawSubtitle = db.get('settings.agentPageSubtitle').value() || '';
   return {
     pageTitle: db.get('settings.agentPageTitle').value() || 'Become an Agent',
-    pageSubtitle: db.get('settings.agentPageSubtitle').value() || '',
-    features: [1, 2, 3].map((n) => ({
-      icon: db.get(`settings.agentFeature${n}Icon`).value() || '',
-      title: db.get(`settings.agentFeature${n}Title`).value() || '',
-      desc: db.get(`settings.agentFeature${n}Desc`).value() || '',
-    })),
+    pageSubtitle: rawSubtitle === AGENT_DEFAULT_SUBTITLE ? '' : rawSubtitle,
+    features: [1, 2, 3].map((n) => {
+      const desc = db.get(`settings.agentFeature${n}Desc`).value() || '';
+      // A feature whose description is still the unfilled default hasn't
+      // actually been set up yet — hide the whole row rather than show a
+      // half-configured card with instructional text as if it were content.
+      if (!desc || desc === AGENT_DEFAULT_DESC) {
+        return { icon: '', title: '', desc: '' };
+      }
+      return {
+        icon: db.get(`settings.agentFeature${n}Icon`).value() || '',
+        title: db.get(`settings.agentFeature${n}Title`).value() || '',
+        desc,
+      };
+    }),
   };
 }
 
