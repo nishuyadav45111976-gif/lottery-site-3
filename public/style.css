@@ -84,6 +84,75 @@ body.user-area-theme .account-head p.subtitle { margin-bottom: 0; }
   body.user-area-theme .account-head { gap: 6px; }
 }
 
+/* Brown/cream palette for the user dashboard area — overriding the same
+   variables the dark-theme block above uses, so every existing button,
+   card, and the WhatsApp bar automatically pick up the new colors without
+   needing their own separate rules. */
+body.user-area-theme {
+  --bg: #f6efe1;
+  --card: #ffffff;
+  --accent: #6b4226;
+  --accent-dark: #55341d;
+  --text: #2b2013;
+  --text-dim: #8a7968;
+  --border: #ece0cb;
+  --banner-green: #3c2a1a;
+}
+body.user-area-theme button, body.user-area-theme .btn { color: #fff; }
+body.user-area-theme .btn.secondary { background: rgba(107,66,38,.07); color: var(--accent); border: 1px solid var(--border); }
+body.user-area-theme .contact-bar { color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+body.user-area-theme .contact-bar svg { flex-shrink: 0; }
+body.user-area-theme .contact-bar .contact-number { color: #fff; }
+
+/* Decorative cream band behind the welcome/account header, with the small
+   pill-style agent button and icon-based Settings/Logout buttons. */
+body.user-area-theme .account-band {
+  background: linear-gradient(135deg, #f6efe1 60%, #ecdfc4 100%);
+  margin: -6px -16px 0;
+  padding: 14px 16px 18px;
+  position: relative;
+  overflow: hidden;
+}
+body.user-area-theme .account-band .haryana-mark {
+  position: absolute; right: 14px; top: 10px; width: 90px; opacity: .35; pointer-events: none;
+}
+body.user-area-theme .account-band .haryana-script {
+  position: absolute; right: 18px; top: 58px; font-family: "Segoe Script", "Brush Script MT", cursive;
+  color: var(--accent); font-size: 1rem; line-height: 1.15; text-align: right; opacity: .8;
+}
+body.user-area-theme .agent-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(107,66,38,.09); color: var(--accent);
+  border-radius: 999px; padding: 7px 14px; font-size: 0.85rem; font-weight: 600;
+  text-decoration: none; margin-bottom: 12px;
+}
+body.user-area-theme .icon-pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+body.user-area-theme .icon-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(107,66,38,.06); color: var(--accent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px;
+  font-size: 0.9rem; font-weight: 600; text-decoration: none; cursor: pointer; margin: 0;
+}
+
+/* Icon-circle rows used inside cards (next draw, quick entry heading) and
+   for the nav-style rows (Choose Lottery / My Tickets). */
+body.user-area-theme .row-icon-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+body.user-area-theme .row-icon-head:last-child { margin-bottom: 0; }
+body.user-area-theme .icon-circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: 0 0 40px; }
+body.user-area-theme .icon-circle.green { background: #dcebd6; color: #3d6b35; }
+body.user-area-theme .icon-circle.tan { background: #f5e3bd; color: #a5701f; }
+body.user-area-theme .icon-circle.purple { background: #e4dcf1; color: #6b4fa0; }
+
+body.user-area-theme .nav-row-grid { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+body.user-area-theme .nav-row-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px 18px; text-decoration: none; color: var(--text);
+}
+body.user-area-theme .nav-row-card .nav-row-text strong { display: block; font-size: 1.02rem; }
+body.user-area-theme .nav-row-card .nav-row-text span { color: var(--text-dim); font-size: 0.87rem; }
+body.user-area-theme .nav-row-card .nav-row-arrow { margin-left: auto; color: var(--text-dim); }
+
 header.site-header .container {
   padding: 0;
   display: flex;
