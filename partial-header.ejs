@@ -52,7 +52,7 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <a class="skip-link" href="#main-content">Skip to content</a>
-<body class="<%= (typeof contactNumber !== 'undefined' && contactNumber) ? 'has-contact-bar' : '' %> <%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? 'admin-theme' : '' %>">
+<body class="<%= (typeof contactNumber !== 'undefined' && contactNumber) ? 'has-contact-bar' : '' %> <%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? 'admin-theme' : '' %> <%= (typeof isUserArea !== 'undefined' && isUserArea && !(typeof isLoginPage !== 'undefined' && isLoginPage)) ? 'user-area-theme' : '' %>">
   <% if (!(typeof isLoginPage !== 'undefined' && isLoginPage)) { %>
   <% if (typeof isAdminPage !== 'undefined' && isAdminPage) { %>
   <header class="site-header admin-topbar">
