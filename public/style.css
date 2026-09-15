@@ -75,10 +75,11 @@ header.site-header {
 
 /* Compact spacing for the user's own account/dashboard pages only — the
    public site and admin panel are untouched. */
-body.user-area-theme header.site-header { padding: 10px 16px; }
-body.user-area-theme .container { padding-top: 12px; }
-body.user-area-theme .account-head { margin-bottom: 10px; gap: 10px; }
-body.user-area-theme .account-head h1 { font-size: 1.35rem; }
+body.user-area-theme header.site-header { padding: 6px 16px; }
+body.user-area-theme .container { padding-top: 6px; }
+body.user-area-theme .account-head { margin-bottom: 8px; gap: 10px; }
+body.user-area-theme .account-head h1 { font-size: 1.35rem; margin-top: 0; }
+body.user-area-theme .account-head p.subtitle { margin-bottom: 0; }
 @media (max-width:650px) {
   body.user-area-theme .account-head { gap: 6px; }
 }
@@ -154,6 +155,8 @@ header.site-header nav a.lang-toggle {
 .install-app-bar {
   text-align: center;
 }
+
+body.user-area-theme .top-buttons-bar { padding: 6px 16px; }
 
 .install-app-bar .btn {
   margin: 0;
