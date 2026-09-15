@@ -73,6 +73,16 @@ header.site-header {
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
 
+/* Compact spacing for the user's own account/dashboard pages only — the
+   public site and admin panel are untouched. */
+body.user-area-theme header.site-header { padding: 10px 16px; }
+body.user-area-theme .container { padding-top: 12px; }
+body.user-area-theme .account-head { margin-bottom: 10px; gap: 10px; }
+body.user-area-theme .account-head h1 { font-size: 1.35rem; }
+@media (max-width:650px) {
+  body.user-area-theme .account-head { gap: 6px; }
+}
+
 header.site-header .container {
   padding: 0;
   display: flex;
