@@ -1,13 +1,32 @@
 <%- include('partial-header', { title: 'My Dashboard' }) %>
 <div class="container">
-  <div class="account-head">
-    <div>
-      <h1>Welcome, <%= user.name %></h1>
-      <p class="subtitle">Personal ID: <strong><%= user.userCode %></strong></p>
+  <div class="account-band">
+    <svg class="haryana-mark" viewBox="0 0 100 130" fill="currentColor"><path d="M38 4c6 2 10 7 16 8s13-3 18 2 2 14 6 19 12 5 13 12-6 11-6 18 6 12 3 19-13 6-17 12-2 15-8 17-13-4-19-2-9 11-16 8-7-11-13-14-16 1-19-6 5-13 3-20-11-10-8-17 12-3 17-9 1-14 8-18 10 2 15-3 5-14 12-16z"/></svg>
+    <div class="haryana-script"><%= siteName %><br>Hub</div>
+
+    <% if (typeof agentPageEnabled !== 'undefined' && agentPageEnabled) { %>
+      <a class="agent-pill" href="/agent">🤝 Become an Agent</a>
+    <% } %>
+
+    <div class="account-head">
+      <div>
+        <h1>Welcome, <%= user.name %></h1>
+        <p class="subtitle">Personal ID: <strong><%= user.userCode %></strong></p>
+      </div>
     </div>
-    <div class="top-actions-inline">
-      <a class="btn secondary" href="/account/settings">Settings</a>
-      <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn secondary" type="submit">Logout</button></form>
+
+    <div class="icon-pill-row">
+      <a class="icon-pill" href="/account/settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <form method="post" action="/logout" style="margin:0;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="icon-pill" type="submit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          Logout
+        </button>
+      </form>
     </div>
   </div>
 
@@ -16,14 +35,24 @@
 
   <div class="card" id="quickUserEntry">
     <% if (typeof closest !== 'undefined' && closest) { %>
-    <div style="padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--border); font-size:0.95em;">
-      <strong><%= closest.lottery.name %></strong> — <%= closest.locked ? 'Closing soon' : 'Next draw' %> in <%= closest.countdownText %> <span class="subtitle" style="font-size:0.85em;">(<%= closest.lottery.drawTime %>)</span>
+    <div class="row-icon-head" style="padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border);">
+      <div class="icon-circle green">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <div>
+        <strong><%= closest.lottery.name %></strong> — <%= closest.locked ? 'Closing soon' : 'Next draw' %> in <%= closest.countdownText %> <span class="subtitle" style="font-size:0.85em;">(<%= closest.lottery.drawTime %>)</span>
+      </div>
     </div>
     <% } %>
-    <h2 style="margin-top:0;">Quick Ticket Entry</h2>
+    <div class="row-icon-head">
+      <div class="icon-circle tan">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z"/><path d="M9 6v12" stroke-dasharray="2 2"/></svg>
+      </div>
+      <h2 style="margin:0;">Quick Ticket Entry</h2>
+    </div>
     <div class="quick-entry-row">
       <input type="text" id="quickUserInput" placeholder="10,11,12,13×75 into Rewari" autocomplete="off">
-      <button type="button" class="btn primary" id="quickUserSubmit">Add</button>
+      <button type="button" class="btn primary" id="quickUserSubmit">Add →</button>
     </div>
     <div class="error-msg" id="quickUserError" style="display:none;"></div>
     <form method="POST" id="quickUserForm" action="/account/quick-purchase" style="display:none;">
@@ -37,9 +66,21 @@
   <script type="application/json" id="quickUserLotteriesData"><%- JSON.stringify(lotteries.map(function(l){return {id:l.id, name:l.name};})) %></script>
   <script src="/user-quick-entry.js" defer></script>
 
-  <div class="dashboard-nav-grid">
-    <a class="dashboard-nav-card" href="/account/lotteries"><strong>Choose Lottery</strong><span>Open a lottery and enter ticket details</span></a>
-    <a class="dashboard-nav-card" href="/account/tickets"><strong>My Tickets</strong><span>View your ticket history and totals</span></a>
+  <div class="nav-row-grid">
+    <a class="nav-row-card" href="/account/lotteries">
+      <div class="icon-circle purple">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z"/></svg>
+      </div>
+      <div class="nav-row-text"><strong>Choose Lottery</strong><span>Open a lottery and enter ticket details</span></div>
+      <span class="nav-row-arrow">›</span>
+    </a>
+    <a class="nav-row-card" href="/account/tickets">
+      <div class="icon-circle green">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z"/></svg>
+      </div>
+      <div class="nav-row-text"><strong>My Tickets</strong><span>View your active and past tickets</span></div>
+      <span class="nav-row-arrow">›</span>
+    </a>
   </div>
 </div>
 <%- include('partial-footer') %>
