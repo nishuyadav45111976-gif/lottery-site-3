@@ -75,7 +75,8 @@ header.site-header {
 
 /* Compact spacing for the user's own account/dashboard pages only — the
    public site and admin panel are untouched. */
-body.user-area-theme header.site-header { padding: 6px 16px; }
+body.user-area-theme header.site-header { padding: 4px 16px; min-height: 0; }
+body.user-area-theme header.site-header a.logo { font-size: 1.1rem; line-height: 1.2; }
 body.user-area-theme .container { padding-top: 6px; }
 body.user-area-theme .account-head { margin-bottom: 8px; gap: 10px; }
 body.user-area-theme .account-head h1 { font-size: 1.35rem; margin-top: 0; }
@@ -114,7 +115,7 @@ body.user-area-theme .account-band {
   overflow: hidden;
 }
 body.user-area-theme .account-band .haryana-mark {
-  position: absolute; right: 14px; top: 10px; width: 90px; opacity: .35; pointer-events: none;
+  position: absolute; right: 10px; top: 6px; width: 100px; height: auto; opacity: .55; pointer-events: none;
 }
 body.user-area-theme .account-band .haryana-script {
   position: absolute; right: 18px; top: 58px; font-family: "Segoe Script", "Brush Script MT", cursive;
