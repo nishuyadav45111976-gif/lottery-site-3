@@ -30,28 +30,43 @@
 <% } else if (rows.length === 0) { %>
   <div class="empty-state"><%= t('historyEmptyNoMatch') %></div>
 <% } else { %>
-  <div style="overflow-x:auto;">
-    <table>
-      <thead>
-        <tr>
-          <th><%= t('colDate') %></th>
-          <% lotteries.forEach(function(lottery) { %>
-            <th><%= lottery.name %></th>
-          <% }); %>
-        </tr>
-      </thead>
-      <tbody>
-        <% rows.forEach(function(row) { %>
-          <tr>
-            <td class="dim-cell"><%= row.date %></td>
-            <% row.cells.forEach(function(cell) { %>
-              <td class="result-cell"><%= cell %></td>
-            <% }); %>
-          </tr>
+  <div class="freeze-grid" id="freezeGrid">
+    <div class="freeze-corner"><%= t('colDate') %></div>
+    <div class="freeze-header-scroll" id="freezeHeaderScroll">
+      <div class="freeze-header-row">
+        <% lotteries.forEach(function(lottery) { %>
+          <div class="freeze-header-cell"><%= lottery.name %></div>
         <% }); %>
-      </tbody>
-    </table>
+      </div>
+    </div>
+    <div class="freeze-dates-scroll" id="freezeDatesScroll">
+      <% rows.forEach(function(row) { %>
+        <div class="freeze-date-cell"><%= row.dateLabel %></div>
+      <% }); %>
+    </div>
+    <div class="freeze-body-scroll" id="freezeBodyScroll">
+      <% rows.forEach(function(row) { %>
+        <div class="freeze-body-row">
+          <% row.cells.forEach(function(cell) { %>
+            <div class="freeze-body-cell"><%= cell %></div>
+          <% }); %>
+        </div>
+      <% }); %>
+    </div>
   </div>
+
+  <script>
+    (function () {
+      var body = document.getElementById('freezeBodyScroll');
+      var header = document.getElementById('freezeHeaderScroll');
+      var dates = document.getElementById('freezeDatesScroll');
+      if (!body || !header || !dates) return;
+      body.addEventListener('scroll', function () {
+        header.scrollLeft = body.scrollLeft;
+        dates.scrollTop = body.scrollTop;
+      }, { passive: true });
+    })();
+  </script>
 <% } %>
 
 <%- include('partial-footer') %>
