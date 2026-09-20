@@ -112,7 +112,8 @@ app.use((req, res, next) => {
   res.locals.csrfToken = req.session.csrfToken;
   if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
     const exempt = req.path === '/millionaire' || req.path === '/billionaire/login';
-    if (!exempt) {
+    const isMultipart = (req.get('content-type') || '').startsWith('multipart/form-data');
+    if (!exempt && !isMultipart) {
       const supplied = req.body && req.body._csrf || req.get('x-csrf-token');
       const a = Buffer.from(String(supplied || '')); const b = Buffer.from(String(req.session.csrfToken || ''));
       if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {

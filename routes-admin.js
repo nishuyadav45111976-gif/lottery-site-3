@@ -308,6 +308,18 @@ router.post('/pages/logo', (req, res, next) => {
     }
     next();
   });
+}, (req, res, next) => {
+  // The global CSRF check (server.js) skips multipart requests, since the
+  // body isn't parsed yet at that point in the pipeline — multer above just
+  // parsed it, so verify the token here instead, now that it's available.
+  const crypto = require('crypto');
+  const supplied = req.body && req.body._csrf;
+  const a = Buffer.from(String(supplied || ''));
+  const b = Buffer.from(String(req.session.csrfToken || ''));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(403).send('Invalid security token. Please refresh the page and try again.');
+  }
+  next();
 }, (req, res) => {
   const logoType = req.body.logoType === 'image' ? 'image' : 'emoji';
 
