@@ -4,6 +4,23 @@ const db = require('./db');
 const { requireLogin } = require('./middleware-auth');
 const { slugify, makeId, makeRecoveryCode, hashPassword, verifyPassword, isValidResultText, isValidPhoneNumber, digitsOnly } = require('./utils');
 const { authenticator } = require('otplib');
+const multer = require('multer');
+
+// In-memory only — the uploaded file is converted straight to a base64 data
+// URI and saved into settings (Postgres), never written to disk. Render's
+// filesystem is wiped on every deploy, so anything saved as a plain file
+// would vanish the next time the app redeploys; storing it as a setting
+// like everything else on this site survives deploys and works the same
+// regardless of host.
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('INVALID_TYPE'));
+    cb(null, true);
+  },
+});
 
 // ---------- LOGIN / LOGOUT ----------
 
@@ -279,6 +296,43 @@ router.post('/pages', (req, res) => {
   db.set('settings.faqText', (faqText || '').trim()).write();
   logAction(req, 'Pages updated', `Site name: ${siteName.trim()}`);
   redirectWithFlash(res, '/billionaire/pages', 'Pages saved');
+});
+
+router.post('/pages/logo', (req, res, next) => {
+  logoUpload.single('logoImage')(req, res, (err) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That image is too large — please use one under 1 MB.'
+        : 'Please upload a PNG, JPG, WEBP, or SVG image.';
+      return redirectWithFlash(res, '/billionaire/pages', message);
+    }
+    next();
+  });
+}, (req, res) => {
+  const logoType = req.body.logoType === 'image' ? 'image' : 'emoji';
+
+  if (logoType === 'emoji') {
+    const emoji = (req.body.logoEmoji || '').trim().slice(0, 8) || '🏆';
+    db.set('settings.siteLogoType', 'emoji').write();
+    db.set('settings.siteLogoEmoji', emoji).write();
+    logAction(req, 'Site logo updated', `Switched to emoji/text: ${emoji}`);
+    return redirectWithFlash(res, '/billionaire/pages', 'Logo saved.');
+  }
+
+  // Image mode: a new file upload always replaces whatever was there.
+  // Re-selecting "image" with no new file just keeps the existing one.
+  if (req.file) {
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    db.set('settings.siteLogoType', 'image').write();
+    db.set('settings.siteLogoImageData', dataUri).write();
+    logAction(req, 'Site logo updated', 'Uploaded a new image logo');
+    return redirectWithFlash(res, '/billionaire/pages', 'Logo saved.');
+  }
+  if (!db.get('settings.siteLogoImageData').value()) {
+    return redirectWithFlash(res, '/billionaire/pages', 'Please choose an image file to upload.');
+  }
+  db.set('settings.siteLogoType', 'image').write();
+  redirectWithFlash(res, '/billionaire/pages', 'Logo saved.');
 });
 
 // ---------- BACKUP EXPORT ----------

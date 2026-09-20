@@ -127,6 +127,9 @@ app.use((req, res, next) => {
 // without passing them manually on every single render() call
 app.use((req, res, next) => {
   res.locals.siteName = db.get('settings.siteName').value() || 'Haryana Results';
+  res.locals.siteLogoType = db.get('settings.siteLogoType').value() || 'emoji';
+  res.locals.siteLogoEmoji = db.get('settings.siteLogoEmoji').value() || '🏆';
+  res.locals.siteLogoImageData = db.get('settings.siteLogoImageData').value() || '';
   res.locals.contactNumber = db.get('settings.contactNumber').value() || '';
   res.locals.contactLabel = db.get('settings.contactLabel').value() || 'Help & Queries';
   res.locals.contactType = db.get('settings.contactType').value() || 'call';

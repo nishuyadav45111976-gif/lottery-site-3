@@ -21,6 +21,16 @@ const defaults = {
     specialStarMode: 'manual',
     autoFillMissedResults: false,
     agentPageEnabled: false,
+    // Logo shown next to the site name in the header. 'emoji' (default) is a
+    // short text/emoji prefix, matching how the site has always looked.
+    // 'image' switches to an uploaded image instead, stored as a data URI
+    // directly in this settings blob (not as a file on disk) — this is a
+    // hosted-on-Render app with an ephemeral filesystem, so anything saved
+    // to disk vanishes on the next deploy; storing it in Postgres like every
+    // other setting means it survives deploys and works the same on any host.
+    siteLogoType: 'emoji',
+    siteLogoEmoji: '🏆',
+    siteLogoImageData: '',
     agentPageTitle: 'Become an Agent',
     agentPageSubtitle: 'Add your own subtitle from Admin \u2192 Agent Page.',
     agentFeature1Icon: '\u2728', agentFeature1Title: 'Feature One Title', agentFeature1Desc: 'Edit this from Admin \u2192 Agent Page.',

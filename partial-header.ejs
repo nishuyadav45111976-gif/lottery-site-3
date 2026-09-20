@@ -57,7 +57,7 @@
   <% if (typeof isAdminPage !== 'undefined' && isAdminPage) { %>
   <header class="site-header admin-topbar">
     <div class="container">
-      <a href="/billionaire" class="logo admin-brand"><span class="admin-brand-mark raised-sm">🏆</span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
+      <a href="/billionaire" class="logo admin-brand"><span class="admin-brand-mark raised-sm"><% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="" class="logo-img-sm"><% } else { %><%= siteLogoEmoji %><% } %></span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
       <% if (!(typeof hideAdminNav !== 'undefined' && hideAdminNav)) { %>
       <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">
         <a href="/billionaire">Dashboard</a>
@@ -81,7 +81,10 @@
   <% } else { %>
   <header class="site-header">
     <div class="container">
-      <a href="/" class="logo">🏆 <%= siteName %></a>
+      <a href="/" class="logo">
+        <% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="" class="logo-img"><% } else { %><%= siteLogoEmoji %><% } %>
+        <%= siteName %>
+      </a>
       <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">
         <a href="/"><%= t('navResults') %></a>
         <a href="/history"><%= t('navHistory') %></a>

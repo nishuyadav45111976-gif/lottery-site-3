@@ -12,6 +12,39 @@
   <div class="error-msg"><%= error %></div>
 <% } %>
 
+<div class="card">
+  <h2 style="margin-top:0;">Site Logo</h2>
+  <p class="subtitle">Shown next to your site name in the header — on the public site and here in the admin panel.</p>
+
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+    <span class="subtitle" style="margin:0;">Current:</span>
+    <% if (siteLogoType === 'image' && siteLogoImageData) { %>
+      <img src="<%= siteLogoImageData %>" alt="" style="height:36px; width:auto; max-width:60px; border-radius:6px; object-fit:contain;">
+    <% } else { %>
+      <span style="font-size:1.8rem;"><%= siteLogoEmoji %></span>
+    <% } %>
+  </div>
+
+  <form method="POST" action="/billionaire/pages/logo" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <label style="font-weight:600;"><input type="radio" name="logoType" value="emoji" <%= siteLogoType !== 'image' ? 'checked' : '' %> onchange="document.getElementById('logoEmojiField').style.display='block';document.getElementById('logoImageField').style.display='none';"> Emoji or short text</label>
+    <label style="font-weight:600; margin-left:20px;"><input type="radio" name="logoType" value="image" <%= siteLogoType === 'image' ? 'checked' : '' %> onchange="document.getElementById('logoEmojiField').style.display='none';document.getElementById('logoImageField').style.display='block';"> Uploaded image</label>
+
+    <div id="logoEmojiField" style="margin-top:16px; <%= siteLogoType === 'image' ? 'display:none;' : '' %>">
+      <label for="logoEmoji">Emoji or short text</label>
+      <input type="text" id="logoEmoji" name="logoEmoji" value="<%= siteLogoEmoji %>" maxlength="8" style="width:120px;" />
+    </div>
+
+    <div id="logoImageField" style="margin-top:16px; <%= siteLogoType === 'image' ? '' : 'display:none;' %>">
+      <label for="logoImage">Upload image (PNG, JPG, WEBP, or SVG — under 1&nbsp;MB)</label>
+      <input type="file" id="logoImage" name="logoImage" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+    </div>
+
+    <button type="submit" style="margin-top:18px;">Save Logo</button>
+  </form>
+</div>
+
 <form class="form-box" method="POST" action="/billionaire/pages"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label for="siteName">Website Name</label>
   <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
