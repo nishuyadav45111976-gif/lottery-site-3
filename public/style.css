@@ -187,6 +187,10 @@ header.site-header a.logo {
   letter-spacing: 0.02em;
 }
 
+.logo-img { height: 1.5em; width: auto; max-width: 40px; vertical-align: middle; border-radius: 6px; object-fit: contain; margin-right: 2px; }
+.logo-img-sm { height: 1.4em; width: auto; max-width: 32px; vertical-align: middle; border-radius: 5px; object-fit: contain; }
+body.user-area-theme .logo-img { max-width: 30px; }
+
 .banner-note {
   color: rgba(255,255,255,0.9);
   font-size: 0.92rem;
