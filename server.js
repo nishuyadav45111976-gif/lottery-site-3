@@ -111,9 +111,14 @@ app.use((req, res, next) => {
   if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
   res.locals.csrfToken = req.session.csrfToken;
   if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
-    const exempt = req.path === '/millionaire' || req.path === '/billionaire/login';
-    const isMultipart = (req.get('content-type') || '').startsWith('multipart/form-data');
-    if (!exempt && !isMultipart) {
+    // Exempted by exact path, same as the login pages below — NOT by
+    // content-type. Exempting every multipart request site-wide would let a
+    // forged cross-site request bypass this check on OTHER routes too (e.g.
+    // ones that only need a URL, no form fields, to do something). Scoping
+    // it to this one path keeps that door closed everywhere else; the logo
+    // route itself does its own equivalent check once multer has parsed it.
+    const exempt = req.path === '/millionaire' || req.path === '/billionaire/login' || req.path === '/billionaire/pages/logo';
+    if (!exempt) {
       const supplied = req.body && req.body._csrf || req.get('x-csrf-token');
       const a = Buffer.from(String(supplied || '')); const b = Buffer.from(String(req.session.csrfToken || ''));
       if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
