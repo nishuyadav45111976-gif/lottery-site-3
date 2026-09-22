@@ -22,6 +22,10 @@
 </div>
 <p class="subtitle"><%= t('lotterySubtitle') %></p>
 
+<% if (results.length > 0) { %>
+  <p style="font-size:1.05rem; font-weight:600; margin:6px 0 16px;">The latest <%= lottery.name %> result is <span style="color:var(--accent-dark);"><%= results[0].resultText %></span>, posted on <%= results[0].dateLabel %>.</p>
+<% } %>
+
 <% if (results.length === 0) { %>
   <div class="empty-state"><%= t('lotteryEmpty') %></div>
 <% } else { %>

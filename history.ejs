@@ -1,5 +1,16 @@
 <%- include('partial-header', { title: 'Full Result History' }) %>
 
+<% if (typeof siteOrigin !== 'undefined' && siteOrigin) { %>
+<script type="application/ld+json"><%- JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": siteOrigin + "/" },
+    { "@type": "ListItem", "position": 2, "name": "Full Result History", "item": siteOrigin + "/history" },
+  ],
+}) %></script>
+<% } %>
+
 <a class="back-link" href="/"><%= t('historyBackLatest') %></a>
 <h1><%= t('historyHeading') %></h1>
 <p class="subtitle"><%= t('historySubtitle') %></p>

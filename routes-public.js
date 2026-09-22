@@ -487,6 +487,40 @@ router.get('/robots.txt', (req, res) => {
   res.send(`User-agent: *\nAllow: /\n\nSitemap: ${base}/sitemap.xml\n`);
 });
 
+// A plain-language description of the site for AI crawlers/answer engines
+// (ChatGPT, Perplexity, etc.) — an emerging convention similar in spirit to
+// robots.txt, but aimed at helping them understand and correctly cite the
+// site rather than controlling crawl access. Generated fresh from live data
+// each time, so the lottery list here never goes stale.
+router.get('/llms.txt', (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`;
+  const lotteries = db.get('lotteries').value() || [];
+  const specialLotteries = db.get('specialLotteries').value() || [];
+  const siteName = res.locals.siteName;
+
+  const lines = [
+    `# ${siteName}`,
+    '',
+    `> ${siteName} publishes daily results for the following lotteries: ${lotteries.map((l) => l.name).join(', ') || '(none yet)'}. Results are compiled for informational purposes only — this site does not sell tickets or handle payments.`,
+    '',
+    '## Key pages',
+    `- [Homepage](${base}/): today's and yesterday's result for every lottery, at a glance.`,
+    `- [Full Result History](${base}/history): every lottery, every date, in one combined chart.`,
+    `- [FAQ](${base}/faq): frequently asked questions about how this site works.`,
+    `- [About](${base}/about): what this site is and how to reach us.`,
+  ];
+  if (specialLotteries.length) {
+    lines.push(`- [Special Lotteries](${base}/special): a separate set of lotteries that draw weekly rather than daily.`);
+  }
+  lines.push('', '## Individual lottery pages');
+  lotteries.forEach((l) => {
+    lines.push(`- [${l.name}](${base}/lottery/${l.slug}): full result history and today's number for ${l.name}.`);
+  });
+
+  res.type('text/plain');
+  res.send(lines.join('\n') + '\n');
+});
+
 // A simple sitemap of every public page, for search engines
 router.get('/sitemap.xml', (req, res) => {
   const base = `${req.protocol}://${req.get('host')}`;

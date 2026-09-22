@@ -1,5 +1,16 @@
 <%- include('partial-header', { title: title, metaDescription: metaDescription }) %>
 
+<% if (typeof siteOrigin !== 'undefined' && siteOrigin) { %>
+<script type="application/ld+json"><%- JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": siteOrigin + "/" },
+    { "@type": "ListItem", "position": 2, "name": "Special Lotteries", "item": siteOrigin + "/special" },
+  ],
+}) %></script>
+<% } %>
+
 <a class="back-link" href="/">&larr; All Results</a>
 <h1>🎰 Special Lottery <span class="special-chip" style="vertical-align:middle;">000–999</span></h1>
 <p class="subtitle">Each special lottery draws once every 7 days. On the homepage it only shows up on its actual draw day — this page always shows every one of them, so you can check back any time.</p>
