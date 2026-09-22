@@ -49,6 +49,10 @@
   <label for="siteName">Website Name</label>
   <input type="text" id="siteName" name="siteName" value="<%= currentName %>" required />
 
+  <label for="areaServed" style="margin-top:16px;">Area Served <span style="font-weight:400;">(optional — e.g. "Haryana, India")</span></label>
+  <p class="subtitle" style="margin-top:-4px;">Tells search engines what region this site is relevant to. Leave blank if not applicable.</p>
+  <input type="text" id="areaServed" name="areaServed" value="<%= currentAreaServed %>" placeholder="e.g. Haryana, India" />
+
   <label for="disclaimerText" style="margin-top:20px;">Disclaimer page content</label>
   <p class="subtitle" style="margin-top:-4px;">Shown at <code>/disclaimer</code>. Leave a blank line between paragraphs.</p>
   <textarea id="disclaimerText" name="disclaimerText" rows="6" style="width:100%; font:inherit; padding:10px; border-radius:8px;"><%= disclaimerText %></textarea>

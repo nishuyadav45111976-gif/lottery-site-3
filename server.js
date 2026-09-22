@@ -136,11 +136,13 @@ app.use((req, res, next) => {
   res.locals.siteLogoType = db.get('settings.siteLogoType').value() || 'emoji';
   res.locals.siteLogoEmoji = db.get('settings.siteLogoEmoji').value() || '🏆';
   res.locals.siteLogoImageData = db.get('settings.siteLogoImageData').value() || '';
+  res.locals.siteAreaServed = db.get('settings.siteAreaServed').value() || '';
   res.locals.contactNumber = db.get('settings.contactNumber').value() || '';
   res.locals.contactLabel = db.get('settings.contactLabel').value() || 'Help & Queries';
   res.locals.contactType = db.get('settings.contactType').value() || 'call';
   res.locals.contactDigits = digitsOnly(res.locals.contactNumber);
   res.locals.currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  res.locals.canonicalUrl = `${req.protocol}://${req.get('host')}${req.path}`;
   res.locals.siteOrigin = `${req.protocol}://${req.get('host')}`;
   res.locals.ogImageUrl = `${req.protocol}://${req.get('host')}/icon-512.png`;
   res.locals.noIndex = req.path.startsWith('/billionaire') || req.path.startsWith('/account') || req.path === '/millionaire' || req.path === '/recover';

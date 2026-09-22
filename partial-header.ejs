@@ -17,7 +17,7 @@
   <meta name="twitter:title" content="<%= (typeof title !== 'undefined' && title) ? title : siteName %>" />
   <meta name="twitter:description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : siteName + ' — latest lottery results, updated daily.' %>" />
   <% if (typeof ogImageUrl !== 'undefined' && ogImageUrl) { %><meta name="twitter:image" content="<%= ogImageUrl %>" /><% } %>
-  <% if (!noIndex && currentUrl) { %><link rel="canonical" href="<%= currentUrl %>" /><% } %>
+  <% if (!noIndex && canonicalUrl) { %><link rel="canonical" href="<%= canonicalUrl %>" /><% } %>
   <meta name="theme-color" content="<%= (typeof isAdminPage !== 'undefined' && isAdminPage) ? '#6B4A32' : '#1a9c6b' %>" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -28,7 +28,7 @@
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "WebSite", "name": siteName, "url": siteOrigin },
-      { "@type": "Organization", "name": siteName, "url": siteOrigin, "logo": (typeof ogImageUrl !== 'undefined' ? ogImageUrl : undefined) }
+      { "@type": "Organization", "name": siteName, "url": siteOrigin, "logo": (typeof ogImageUrl !== 'undefined' ? ogImageUrl : undefined), "areaServed": (typeof siteAreaServed !== 'undefined' && siteAreaServed) ? siteAreaServed : undefined }
     ]
   }) %></script>
   <% } %>
@@ -58,7 +58,7 @@
   <% if (typeof isAdminPage !== 'undefined' && isAdminPage) { %>
   <header class="site-header admin-topbar">
     <div class="container">
-      <a href="/billionaire" class="logo admin-brand"><span class="admin-brand-mark raised-sm"><% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="" class="logo-img-sm"><% } else { %><%= siteLogoEmoji %><% } %></span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
+      <a href="/billionaire" class="logo admin-brand"><span class="admin-brand-mark raised-sm"><% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="<%= siteName %>" class="logo-img-sm"><% } else { %><%= siteLogoEmoji %><% } %></span> <span><span class="brand-title-text"><%= siteName %></span><span class="brand-sub-text">Admin Panel</span></span></a>
       <% if (!(typeof hideAdminNav !== 'undefined' && hideAdminNav)) { %>
       <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">
         <a href="/billionaire">Dashboard</a>
@@ -83,7 +83,7 @@
   <header class="site-header">
     <div class="container">
       <a href="/" class="logo">
-        <% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="" class="logo-img"><% } else { %><%= siteLogoEmoji %><% } %>
+        <% if (siteLogoType === 'image' && siteLogoImageData) { %><img src="<%= siteLogoImageData %>" alt="<%= siteName %>" class="logo-img"><% } else { %><%= siteLogoEmoji %><% } %>
         <%= siteName %>
       </a>
       <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><nav id="siteNav">

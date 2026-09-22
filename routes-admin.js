@@ -269,6 +269,7 @@ router.post('/settings', (req, res) => {
 router.get('/pages', (req, res) => {
   res.render('admin-pages', {
     currentName: db.get('settings.siteName').value() || 'Haryana Results',
+    currentAreaServed: db.get('settings.siteAreaServed').value() || '',
     disclaimerText: db.get('settings.disclaimerText').value() || '',
     privacyText: db.get('settings.privacyText').value() || '',
     aboutText: db.get('settings.aboutText').value() || '',
@@ -278,10 +279,11 @@ router.get('/pages', (req, res) => {
 });
 
 router.post('/pages', (req, res) => {
-  const { siteName, disclaimerText, privacyText, aboutText, faqText } = req.body;
+  const { siteName, areaServed, disclaimerText, privacyText, aboutText, faqText } = req.body;
   if (!siteName || !siteName.trim()) {
     return res.render('admin-pages', {
       currentName: db.get('settings.siteName').value() || 'Haryana Results',
+      currentAreaServed: areaServed || '',
       disclaimerText: disclaimerText || '',
       privacyText: privacyText || '',
       aboutText: aboutText || '',
@@ -290,6 +292,7 @@ router.post('/pages', (req, res) => {
     });
   }
   db.set('settings.siteName', siteName.trim()).write();
+  db.set('settings.siteAreaServed', (areaServed || '').trim()).write();
   db.set('settings.disclaimerText', (disclaimerText || '').trim()).write();
   db.set('settings.privacyText', (privacyText || '').trim()).write();
   db.set('settings.aboutText', (aboutText || '').trim()).write();

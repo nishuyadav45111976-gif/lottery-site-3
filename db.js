@@ -31,6 +31,11 @@ const defaults = {
     siteLogoType: 'emoji',
     siteLogoEmoji: '🏆',
     siteLogoImageData: '',
+    // Optional geographic relevance signal for search engines (e.g.
+    // "Haryana, India") — included in the site's Organization schema only
+    // when an admin actually sets it, since this codebase isn't tied to any
+    // one region and shouldn't assume one.
+    siteAreaServed: '',
     agentPageTitle: 'Become an Agent',
     agentPageSubtitle: 'Add your own subtitle from Admin \u2192 Agent Page.',
     agentFeature1Icon: '\u2728', agentFeature1Title: 'Feature One Title', agentFeature1Desc: 'Edit this from Admin \u2192 Agent Page.',
